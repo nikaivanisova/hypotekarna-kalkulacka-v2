@@ -4,7 +4,7 @@ Notes for whoever picks up this project next: current state, open questions, and
 
 ## Current State
 
-**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–2 of `docs/v1/05-plan.md` are complete (24/24 tests green). Step 3 (Validation, M3) is next.
+**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–3 of `docs/v1/05-plan.md` are complete (49/49 tests green). Step 4 (Calculation, M4) is next.
 
 - Base project structure created (docs, README, CLAUDE.md, git repo).
 - Layer 1 (functional definition) approved: `docs/v1/01-functional.md`.
@@ -42,6 +42,11 @@ Notes for whoever picks up this project next: current state, open questions, and
   - **Literal-spec choices for open findings (relevant to Step 3):**
     - Only U+0020 spaces are removed inside a number (#12): a tab or NBSP inside a number → `not_a_number`. At the edges, JS `trim()` removes all whitespace, including NBSP.
     - `"-0"` and `"-0,00"` parse to a negative-zero Decimal (#9). `isNegative()` is `true` for it, so M3 will report `negative` unless the author decides otherwise.
+- **Part B, Step 3 complete (2026-10-21):** M3 `src/input/validation.ts` + `tests/input/validation.test.ts` (tests 17–40, 101), built test-first (red: 25 failed → green).
+  - `npm test` → 49 passed; `npm run typecheck` → 0 errors.
+  - The exports are `FieldRule`, `V1_RULES` and `validateLoanInput(raw, rules = V1_RULES)`. There is one error per field, in the 02 order, and errors are reported in field order (loan, rate, term). `termYears` is converted to a JS integer.
+  - Confirmed: rate `"-0"` → `[{annualRate, negative}]` (literal reading of 01 §3.3; open finding #9).
+  - **Step 4 notes:** `LoanInput` values are `Decimal`s from decimal.js's global constructor. M4 must re-wrap them in its private clone (`new Dec(input.principal)`) before doing arithmetic (test 61).
 
 ## Open Questions
 - Author decisions on findings #7–#24 in `docs/v1/04-review.md` (all Minor). Still undecided: `-0` (#9), space grouping / NBSP (#12), term `"10,0"` (#13), duplicated rounding and limits (#16, #17), the `ui → domain` rule (#18).
@@ -59,4 +64,4 @@ Part B, following `docs/v1/05-plan.md` section 3. Each step is test-first and en
 8. CLI adapter (M8): tests 85–88, 111–112 (107 total).
 9. Main + e2e (M9): tests 89–92, 110 (112 total).
 
-**Steps 1–2: done. Current step: 3 (Validation, M3): tests 17–40, 101 → 49 tests in total.**
+**Steps 1–3: done. Current step: 4 (Calculation, M4): tests 41–61, 102–108 → 77 tests in total.**

@@ -394,3 +394,31 @@ Min/max recorded as inclusive.
   `writtenDecimals` counts the fraction digits as typed.
 - **Verification:** `npm test` → 2 files, **24 passed (24)**; `npm run typecheck` → 0 errors.
 - Updated `docs/handoff.md`.
+
+## Prompt 11 — Part B, Step 3: validation (M3), test-first
+
+### Prompt
+
+> Read `docs/v1/05-plan.md`. We are executing Part B (Build V1), Step 3.
+>
+> Follow the Test-First (TDD) workflow for Module 3 (Validation):
+> 1. Write unit tests in `tests/input/validation.test.ts` for the 25 validation test scenarios specified in `docs/v1/05-plan.md` (Test IDs 17 through 40, and 101).
+> 2. Verify that running `npm test` fails as expected (Red).
+> 3. Implement `src/input/validation.ts` matching M3 in `docs/v1/02-architecture.md` and the input boundary rules from `01-functional.md`.
+> 4. Run `npm test` and `npm run typecheck` to verify that all 49 tests (3 architecture + 21 parsing + 25 validation) pass cleanly with zero type errors (Green).
+>
+> After verifying Step 3 completion:
+> 1. Log this step into `docs/v1/prompts.md` as Prompt 11.
+> 2. Update `docs/handoff.md` to show Step 3 complete and Step 4 (Calculation) ready.
+> 3. Make a git commit using the exact message specified in `05-plan.md` for Step 3: "feat: add input validation logic (M3)".
+
+### Output
+
+- **Tests:** `tests/input/validation.test.ts` with the 25 scenarios (17–40, 101). Fields that a scenario does not mention get valid defaults (`100000` / `3` / `10`), so each expected error list is exact.
+- **Red:** with a throwing stub, **25 failed, 24 passed**.
+- **Green:** `src/input/validation.ts` exports `FieldRule`, `V1_RULES` (01 §3.1 limits) and `validateLoanInput(raw, rules = V1_RULES)`.
+  - It parses through M2. Each field gets at most one error, in the 02 order: `required` → `not_a_number` → `negative` → `not_whole_number` → `too_many_decimals` → `below_min` / `above_max`.
+  - All fields are checked, and errors are reported in field order.
+- **Verification:** `npm test` → 3 files, **49 passed (49)**; `npm run typecheck` → 0 errors.
+- **Commit message:** the plan's Step 3 message ("feat: add input validation (M3)") was used; the prompt's quoted message differs from the plan.
+- Updated `docs/handoff.md`.
