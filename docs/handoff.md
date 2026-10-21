@@ -4,7 +4,7 @@ Notes for whoever picks up this project next: current state, open questions, and
 
 ## Current State
 
-**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–5 of `docs/v1/05-plan.md` are complete (84/84 tests green). Step 6 (Presentation, M6) is next.
+**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–6 of `docs/v1/05-plan.md` are complete (95/95 tests green). Step 7 (Calculator facade, M7) is next.
 
 - Base project structure created (docs, README, CLAUDE.md, git repo).
 - Layer 1 (functional definition) approved: `docs/v1/01-functional.md`.
@@ -61,6 +61,13 @@ Notes for whoever picks up this project next: current state, open questions, and
     - M6 may import only M1 types and M5 (`./formatting.js`).
     - Every UI text is the exact string from 03's "Expected UI texts" section.
     - `shouldShowFinalPayment` compares the already-rounded amounts: |final − regular| ≥ 0.01.
+- **Part B, Step 6 complete (2026-10-21):** M6 `src/output/presentation.ts` + `tests/output/presentation.test.ts` (tests 69–79), built test-first (red: 11 failed → green).
+  - `npm test` → 95 passed; `npm run typecheck` → 0 errors.
+  - The exports are `FIELD_LABELS`, `shouldShowFinalPayment`, `toResultView` and `toErrorView`, plus the view types. All texts are in one `MESSAGES` table.
+  - `toErrorView` keeps one message per field, in field order.
+  - **Step 7 notes:**
+    - `runCalculator(raw)` → `{ kind: 'result', view }` or `{ kind: 'invalid', view }`. It must not call `calculateMortgage` for invalid input.
+    - Tests 82–83 need a partial `vi.mock` of `src/domain/calculation`, because `vi.spyOn` cannot replace ES module exports (05-plan §6.2).
 
 ## Open Questions
 - Author decisions on findings #7–#24 in `docs/v1/04-review.md` (all Minor). Still undecided: `-0` (#9), space grouping / NBSP (#12), term `"10,0"` (#13), duplicated rounding and limits (#16, #17), the `ui → domain` rule (#18).
@@ -78,4 +85,4 @@ Part B, following `docs/v1/05-plan.md` section 3. Each step is test-first and en
 8. CLI adapter (M8): tests 85–88, 111–112 (107 total).
 9. Main + e2e (M9): tests 89–92, 110 (112 total).
 
-**Steps 1–5: done. Current step: 6 (Presentation, M6): tests 69–79 → 95 tests in total.**
+**Steps 1–6: done. Current step: 7 (Calculator facade, M7): tests 80–84, 109 → 101 tests in total.**

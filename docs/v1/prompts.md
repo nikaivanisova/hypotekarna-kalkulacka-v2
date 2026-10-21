@@ -493,3 +493,38 @@ Min/max recorded as inclusive.
 - **Verification:** `npm test` → 5 files, **84 passed (84)**; `npm run typecheck` → 0 errors.
 - **Commit message:** the plan's Step 5 message ("feat: add money formatting (M5)") was used; the prompt's quoted message differs from the plan.
 - Updated `docs/handoff.md`.
+
+## Prompt 14 — Part B, Step 6: presentation (M6), test-first
+
+### Prompt
+
+> Read `docs/v1/05-plan.md`. We are executing Part B (Build V1), Step 6.
+>
+> Follow the Test-First (TDD) workflow for Module 6 (Presentation):
+> 1. Write unit tests in `tests/output/presentation.test.ts` for the 9 test scenarios specified in `docs/v1/05-plan.md` (Test IDs 69 through 77).
+> 2. Verify that running `npm test` fails as expected (Red).
+> 3. Implement `src/output/presentation.ts` matching M6 in `docs/v1/02-architecture.md`:
+>    - Map validation error codes to exact English error messages.
+>    - Format success outputs (Regular Payment, Final Payment, Total Paid, Total Interest).
+>    - Enforce the presentation rule: display the Final Payment line ONLY if it differs from the Regular Payment by >= €0.01.
+> 4. Run `npm test` and `npm run typecheck` to verify that all 93 tests (84 existing + 9 presentation) pass cleanly with zero type errors (Green).
+>
+> After verifying Step 6 completion:
+> 1. Log this step into `docs/v1/prompts.md` as Prompt 14.
+> 2. Update `docs/handoff.md` to show Step 6 complete and Step 7 (Calculator Facade) ready.
+> 3. Make a git commit using the exact commit message from `05-plan.md` for Step 6: "feat: add output presentation logic (M6)".
+
+### Output
+
+- **Deviations from the prompt, following `05-plan.md` §3:**
+  - **Test IDs:** the plan's Step 6 has **11 tests (69–79), 95 in total**. Tests 78 (decimal-place messages) and 79 (one message per field, in field order) are also M6 tests and are not scheduled in any other step.
+  - **Commit message:** the plan's Step 6 message ("feat: add result and error presentation (M6)") was used.
+- **Red:** with a throwing stub, **11 failed, 84 passed**.
+- **Green:** `src/output/presentation.ts` exports `ResultLine`, `ResultView`, `FieldErrorView`, `ErrorView`, `FIELD_LABELS`, `shouldShowFinalPayment`, `toResultView` and `toErrorView`.
+  - All texts sit in one `MESSAGES` table (02 M6), with exact strings from 03's "Expected UI texts". The table is checked with `satisfies` to cover every `ValidationErrorCode`.
+  - The Final Payment line is shown only if |final − regular| ≥ €0.01.
+  - Result lines are in the order: Regular Monthly Payment, Final Payment, Total Paid, Total Interest.
+  - Errors are deduplicated to one per field and shown in field order.
+  - The range texts mirror `V1_RULES`, with a comment pointing to it (04 #17, accepted for V1).
+- **Verification:** `npm test` → 6 files, **95 passed (95)**; `npm run typecheck` → 0 errors.
+- Updated `docs/handoff.md`.
