@@ -594,3 +594,41 @@ Min/max recorded as inclusive.
   - Mutation check: dropping lines that arrive with no pending `ask` makes test 111 fail.
 - **Verification:** `npm test` → 8 files, **107 passed (107)**; `npm run typecheck` → 0 errors.
 - Updated `docs/handoff.md`.
+
+## Prompt 17 — Part B, Step 9: main entry point (M9) and e2e tests, test-first
+
+### Prompt
+
+> Read `docs/v1/05-plan.md`. We are executing Part B (Build V1), Step 9 (the final build step).
+>
+> Follow the Test-First (TDD) workflow for Module 9 (Main Entrypoint):
+> 1. Write End-to-End (E2E) integration tests in `tests/e2e.test.ts` for the 5 remaining test scenarios specified in `docs/v1/05-plan.md` (Test IDs 89 through 92, and 110).
+>    - Use `child_process.spawn` executing `node --import tsx src/main.ts` (avoiding shell dependency on Windows) to test full end-to-end process execution with piped stdin/stdout and exit codes.
+> 2. Verify that running `npm test` fails as expected (Red).
+> 3. Implement `src/main.ts` matching M9 in `docs/v1/02-architecture.md`:
+>    - Instantiate `createNodeTerminalIo` passing `process.stdin` and `process.stdout`.
+>    - Call `runCli` and exit the node process with its returned exit code (`process.exit(code)`).
+> 4. Run `npm test`, `npm run typecheck`, and verify interactive execution via `npm start`:
+>    - Verify that **all 112 test scenarios pass cleanly with 0 failures**.
+>    - Verify that `npm run typecheck` passes with zero errors.
+>
+> After verifying Step 9 completion:
+> 1. Log this step into `docs/v1/prompts.md` as Prompt 17.
+> 2. Update `docs/handoff.md` to show Part B (Build V1) 100% complete and ready for Experiment E1 & Retrospective (`06-retro.md`).
+> 3. Make a git commit using the exact commit message from `05-plan.md` for Step 9: "feat: add main entrypoint and e2e tests (M9)".
+
+### Output
+
+- **Deviations from the prompt** (the documents in `docs/v1/` were followed, as in Steps 7–8):
+  - **Test file:** `tests/e2e/cli.e2e.test.ts` (05-plan §3 Step 9 and §4: `tests/e2e/`), not `tests/e2e.test.ts`.
+  - **Exit code:** `process.exitCode = await runCli(io)` (02 M9), not `process.exit(code)`. Setting `exitCode` lets the process end on its own once stdout is flushed. `runCli` closes the readline interface, so nothing keeps the process alive.
+  - **Commit message:** the plan's Step 9 message was used: "feat: add main entry point and end-to-end tests (M9)".
+- **Tests:** each test spawns `process.execPath` with `['--import', 'tsx', 'src/main.ts']` (no shell), writes the stdin script and closes it, then asserts on stdout and the exit code. Test 91 also counts the prompts: the loan and rate prompts appear twice and the term prompt once.
+- **Red:** with no `src/main.ts`, **4 failed, 108 passed**. Test 92 (exit 1, no result lines) passed vacuously, because a missing module also exits with code 1.
+- **Green:** `src/main.ts` imports only `ui/cli`: `process.exitCode = await runCli(createNodeTerminalIo(process.stdin, process.stdout))`.
+- **Verification:**
+  - `npm test` → 9 files, **112 passed (112)**; `npm run typecheck` → 0 errors.
+  - AC-4: `printf '100 000\n3,5\n30\n' | npm start` → the 4 result lines of test 89, exit 0. `printf '100000\n' | npm start` → no result lines, exit 1.
+  - AC-3: `npm start` in an interactive terminal shows `Loan amount (EUR): ` and waits for input, with no default. The agent cannot type into a TTY, so the rest of the interactive run is left for the author to check.
+  - Windows note: in PowerShell, `npm start` is blocked by the execution policy (`npm.ps1`); `npm.cmd start` works.
+- Updated `docs/handoff.md`.

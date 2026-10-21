@@ -4,7 +4,7 @@ Notes for whoever picks up this project next: current state, open questions, and
 
 ## Current State
 
-**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–8 of `docs/v1/05-plan.md` are complete (107/107 tests green). Step 9 (main entry point and e2e verification, M9) is next.
+**Part A (Planning): complete.** **Part B (Build V1): 100 % complete.** All 9 steps of `docs/v1/05-plan.md` are done (112/112 tests green, 0 type errors). Next: Experiment E1 and the retrospective (`docs/v1/06-retro.md`).
 
 - Base project structure created (docs, README, CLAUDE.md, git repo).
 - Layer 1 (functional definition) approved: `docs/v1/01-functional.md`.
@@ -86,6 +86,14 @@ Notes for whoever picks up this project next: current state, open questions, and
     - `src/main.ts` may import only `ui/*`: `process.exitCode = await runCli(createNodeTerminalIo());`.
     - E2E tests spawn `process.execPath` with `['--import', 'tsx', 'src/main.ts']`, not `npx` (Windows, 05-plan §6.2).
     - AC-3 and AC-4 are checked by hand and recorded here.
+- **Part B, Step 9 complete (2026-10-21):** M9 `src/main.ts` + `tests/e2e/cli.e2e.test.ts` (tests 89–92, 110), built test-first (red: 4 failed → green).
+  - `npm test` → 9 files, **112 passed (112)**; `npm run typecheck` → 0 errors.
+  - `src/main.ts` imports only `ui/cli`: `process.exitCode = await runCli(createNodeTerminalIo(process.stdin, process.stdout))`. It uses `exitCode` (02 M9) instead of `process.exit()`, so stdout is flushed before the process ends.
+  - The e2e tests spawn `process.execPath` with `['--import', 'tsx', 'src/main.ts']` and pipe stdin. During Red, test 92 passed vacuously, because a missing module also exits with code 1. It only carries weight together with the other four tests.
+  - **AC-4 (checked by hand):** `printf '100 000\n3,5\n30\n' | npm start` → the 4 result lines of test 89, exit 0. `printf '100000\n' | npm start` → no result lines, exit 1.
+  - **AC-3 (partly checked):** in an interactive terminal, `npm start` shows `Loan amount (EUR): ` with no default and waits. The author still needs to confirm the full interactive run (typing all three values, exit 0).
+  - Windows: in PowerShell, `npm start` is blocked by the execution policy (`npm.ps1`); use `npm.cmd start`.
+  - Deviations from the prompt (file path, `process.exit`, commit message): the 05-plan / 02 versions were used. See Prompt 17 in `docs/v1/prompts.md`.
 
 ## Open Questions
 - Author decisions on findings #7–#24 in `docs/v1/04-review.md` (all Minor). Still undecided: `-0` (#9), space grouping / NBSP (#12), term `"10,0"` (#13), duplicated rounding and limits (#16, #17), the `ui → domain` rule (#18).
@@ -103,4 +111,9 @@ Part B, following `docs/v1/05-plan.md` section 3. Each step is test-first and en
 8. CLI adapter (M8): tests 85–88, 111–112 (107 total).
 9. Main + e2e (M9): tests 89–92, 110 (112 total).
 
-**Steps 1–8: done. Current step: 9 (main entry point and e2e verification, M9): tests 89–92, 110 → 112 tests in total.**
+**Steps 1–9: done. Part B (Build V1) is 100 % complete: 112/112 tests, 0 type errors.**
+
+Next:
+1. Confirm AC-3 by hand: run `npm start` (`npm.cmd start` in PowerShell), type `100 000`, `3,5` and `30`, then check the 4 result lines and exit code 0.
+2. Experiment E1.
+3. Retrospective: `docs/v1/06-retro.md`.
