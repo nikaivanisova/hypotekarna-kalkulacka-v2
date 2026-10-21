@@ -562,3 +562,35 @@ Min/max recorded as inclusive.
   - Mutation check: calling `calculateMortgage` before the validity check makes tests 80 and 82–84 fail.
 - **Verification:** `npm test` → 7 files, **101 passed (101)**; `npm run typecheck` → 0 errors.
 - Updated `docs/handoff.md`.
+
+## Prompt 16 — Part B, Step 8: CLI terminal adapter (M8), test-first
+
+### Prompt
+
+> Read `docs/v1/05-plan.md`. We are executing Part B (Build V1), Step 8.
+>
+> Follow the Test-First (TDD) workflow for Module 8 (CLI Terminal Adapter):
+> 1. Write unit and functional tests in `tests/ui/cli.test.ts` for the 6 test scenarios specified in `docs/v1/05-plan.md` (Test IDs 85 through 88, and 111 through 112).
+>    - Use custom input/output streams (or mock `Readable`/`Writable` streams) to test interactive prompt flow, Windows line endings, and EOF queue draining without real process IO.
+> 2. Verify that running `npm test` fails as expected (Red).
+> 3. Implement `src/ui/cli.ts` matching M8 in `docs/v1/02-architecture.md`:
+>    - Implement the non-blocking line-queue pattern over `node:readline` to safely handle piped input, CRLF line endings, and EOF stream termination without hanging.
+>    - Format prompts and terminal output according to the UI text specification in `docs/v1/03-test-scenarios.md`.
+> 4. Run `npm test` and `npm run typecheck` to verify that all 107 tests pass cleanly with zero type errors (Green).
+>
+> After verifying Step 8 completion:
+> 1. Log this step into `docs/v1/prompts.md` as Prompt 16.
+> 2. Update `docs/handoff.md` to show Step 8 complete and Step 9 (Main Entrypoint & E2E Verification) ready.
+> 3. Make a git commit using the exact commit message from `05-plan.md` for Step 8: "feat: add interactive CLI adapter with line queue (M8)".
+
+### Output
+
+- **Deviation from the prompt:** the commit message quoted in the prompt differs from the one in `05-plan.md` §3. As in Step 7, the plan's message was used: "feat: add CLI adapter with line-queue terminal reader (M8)".
+- **Tests:** tests 85–88 use a scripted fake `TerminalIo`; tests 111–112 use in-memory `PassThrough` streams (05-plan §5). Test 111 also runs a CRLF variant of the piped input (05-plan §6.2) and checks that `close()` is idempotent.
+- **Red:** with a throwing stub, **6 failed, 101 passed**.
+- **Green:** `src/ui/cli.ts` exports `TerminalIo`, `createNodeTerminalIo(input?, output?)` and `runCli(io)`.
+  - `createNodeTerminalIo`: one `node:readline` interface (`crlfDelay: Infinity`), subscribed to `line` and `close` at creation. Lines go into a FIFO queue; `ask` writes the prompt and resolves from the queue or a single pending resolver. On `close`, the pending and every later `ask` resolve to `undefined`; queued lines are still returned first.
+  - `runCli`: asks all three fields, runs `runCalculator`, prints each error message and re-asks only the invalid fields, prints `label: value` lines on success (exit 0), returns 1 if input closes early, and always calls `io.close()`.
+  - Mutation check: dropping lines that arrive with no pending `ask` makes test 111 fail.
+- **Verification:** `npm test` → 8 files, **107 passed (107)**; `npm run typecheck` → 0 errors.
+- Updated `docs/handoff.md`.

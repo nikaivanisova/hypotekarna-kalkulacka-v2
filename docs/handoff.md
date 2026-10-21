@@ -4,7 +4,7 @@ Notes for whoever picks up this project next: current state, open questions, and
 
 ## Current State
 
-**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–7 of `docs/v1/05-plan.md` are complete (101/101 tests green). Step 8 (CLI terminal adapter, M8) is next.
+**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–8 of `docs/v1/05-plan.md` are complete (107/107 tests green). Step 9 (main entry point and e2e verification, M9) is next.
 
 - Base project structure created (docs, README, CLAUDE.md, git repo).
 - Layer 1 (functional definition) approved: `docs/v1/01-functional.md`.
@@ -75,6 +75,17 @@ Notes for whoever picks up this project next: current state, open questions, and
   - **Step 8 notes:**
     - M8 imports only `app/calculator` and `domain/types` (architecture guard); it must not import M2–M6 directly.
     - `createNodeTerminalIo(input?, output?)` is the line queue from 02 M8 / ADR-10. Tests 111–112 use in-memory `PassThrough` streams; tests 85–88 use a scripted fake `TerminalIo`.
+- **Part B, Step 8 complete (2026-10-21):** M8 `src/ui/cli.ts` + `tests/ui/cli.test.ts` (tests 85–88, 111–112), built test-first (red: 6 failed → green).
+  - `npm test` → 107 passed; `npm run typecheck` → 0 errors.
+  - The exports are `TerminalIo`, `createNodeTerminalIo(input = process.stdin, output = process.stdout)` and `runCli(io)`.
+  - `createNodeTerminalIo` is the event-driven line queue (ADR-10): one readline interface, a FIFO queue, a single pending resolver, and `undefined` for the pending and every later `ask` after EOF. `close()` is idempotent. Test 111 also covers CRLF input.
+  - `runCli` re-asks only the invalid fields, prints `label: value` result lines (exit 0) or returns 1 when input closes early, and always calls `io.close()` so stdin does not keep the process alive.
+  - Mutation check: dropping lines that arrive with no pending `ask` makes test 111 fail.
+  - Commit message: the plan's Step 8 message was used (the prompt quoted a different one).
+  - **Step 9 notes:**
+    - `src/main.ts` may import only `ui/*`: `process.exitCode = await runCli(createNodeTerminalIo());`.
+    - E2E tests spawn `process.execPath` with `['--import', 'tsx', 'src/main.ts']`, not `npx` (Windows, 05-plan §6.2).
+    - AC-3 and AC-4 are checked by hand and recorded here.
 
 ## Open Questions
 - Author decisions on findings #7–#24 in `docs/v1/04-review.md` (all Minor). Still undecided: `-0` (#9), space grouping / NBSP (#12), term `"10,0"` (#13), duplicated rounding and limits (#16, #17), the `ui → domain` rule (#18).
@@ -92,4 +103,4 @@ Part B, following `docs/v1/05-plan.md` section 3. Each step is test-first and en
 8. CLI adapter (M8): tests 85–88, 111–112 (107 total).
 9. Main + e2e (M9): tests 89–92, 110 (112 total).
 
-**Steps 1–7: done. Current step: 8 (CLI terminal adapter, M8): tests 85–88, 111–112 → 107 tests in total.**
+**Steps 1–8: done. Current step: 9 (main entry point and e2e verification, M9): tests 89–92, 110 → 112 tests in total.**
