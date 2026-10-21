@@ -422,3 +422,42 @@ Min/max recorded as inclusive.
 - **Verification:** `npm test` → 3 files, **49 passed (49)**; `npm run typecheck` → 0 errors.
 - **Commit message:** the plan's Step 3 message ("feat: add input validation (M3)") was used; the prompt's quoted message differs from the plan.
 - Updated `docs/handoff.md`.
+
+## Prompt 12 — Part B, Step 4: calculation (M4), test-first
+
+### Prompt
+
+> Read `docs/v1/05-plan.md`. We are executing Part B (Build V1), Step 4.
+>
+> Follow the Test-First (TDD) workflow for Module 4 (Calculation):
+> 1. Write unit tests in `tests/domain/calculation.test.ts` for the 28 test scenarios specified in `docs/v1/05-plan.md` (Test IDs 41 through 60, and 102 through 109).
+> 2. Verify that running `npm test` fails as expected (Red).
+> 3. Implement `src/domain/calculation.ts` matching M4 in `docs/v1/02-architecture.md`, including:
+>    - Constructing a private 40-digit precision Decimal context (`Decimal.clone({ precision: 40 })`) to prevent global pollution.
+>    - Standard annuity calculation with monthly compounding.
+>    - 0% rate logic and standard half-up rounding to cents on regular payment output.
+>    - Early termination payoff loop for balance <= regular payment before month n.
+>    - Sub-half-cent rounding tail handling (retaining previous payment as final if remaining tail rounds to €0.00).
+> 4. Run `npm test` and `npm run typecheck` to verify that all 77 tests (3 architecture + 21 parsing + 25 validation + 28 calculation) pass cleanly with zero type errors (Green).
+>
+> After verifying Step 4 completion:
+> 1. Log this step into `docs/v1/prompts.md` as Prompt 12.
+> 2. Update `docs/handoff.md` to show Step 4 complete and Step 5 (Formatting) ready.
+> 3. Make a git commit using the exact message specified in `05-plan.md` for Step 4: "feat: add annuity calculation engine with early payoff support (M4)".
+
+### Output
+
+- **Deviations from the prompt, following `05-plan.md` §3:**
+  - **Test IDs:** the 28 tests are **41–61 and 102–108**. Test 61 (global Decimal config) belongs to M4. Test 109 is a calculator (M7) functional test for Step 7.
+  - **Commit message:** the plan's Step 4 message ("feat: add mortgage calculation with early termination (M4)") was used.
+- **Red:** with throwing stubs, **28 failed, 49 passed**.
+- **Green:** `src/domain/calculation.ts` exports `roundToCents` and `calculateMortgage`.
+  - A private context `Decimal.clone({ precision: 40, rounding: ROUND_HALF_UP })` is used, and inputs are re-wrapped into it.
+  - The annuity uses monthly compounding, and 0 % gives `P ÷ n`. M is rounded half up to cents once.
+  - The amount-due loop stops at month n or when `D ≤ M_rounded` (early termination).
+  - If the final amount rounds to €0.00, the previous month's payment becomes the final one (zero-tail rule).
+  - Totals follow 01 §4.5.
+- **Tests:** test 61 restores the global Decimal settings in `finally`. Test 108 uses a seeded mulberry32 PRNG (no extra dependency) and checks exactly 6 800 inputs, taking about 3.9 s (timeout 120 s).
+- **Mutation check:** removing early termination failed 6 tests (102–106, 108). Removing the zero-tail rule failed test 106. The file was then restored.
+- **Verification:** `npm test` → 4 files, **77 passed (77)**; `npm run typecheck` → 0 errors.
+- Updated `docs/handoff.md`.

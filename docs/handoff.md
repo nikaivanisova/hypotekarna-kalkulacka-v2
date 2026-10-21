@@ -4,7 +4,7 @@ Notes for whoever picks up this project next: current state, open questions, and
 
 ## Current State
 
-**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–3 of `docs/v1/05-plan.md` are complete (49/49 tests green). Step 4 (Calculation, M4) is next.
+**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–4 of `docs/v1/05-plan.md` are complete (77/77 tests green). Step 5 (Formatting, M5) is next.
 
 - Base project structure created (docs, README, CLAUDE.md, git repo).
 - Layer 1 (functional definition) approved: `docs/v1/01-functional.md`.
@@ -47,6 +47,13 @@ Notes for whoever picks up this project next: current state, open questions, and
   - The exports are `FieldRule`, `V1_RULES` and `validateLoanInput(raw, rules = V1_RULES)`. There is one error per field, in the 02 order, and errors are reported in field order (loan, rate, term). `termYears` is converted to a JS integer.
   - Confirmed: rate `"-0"` → `[{annualRate, negative}]` (literal reading of 01 §3.3; open finding #9).
   - **Step 4 notes:** `LoanInput` values are `Decimal`s from decimal.js's global constructor. M4 must re-wrap them in its private clone (`new Dec(input.principal)`) before doing arithmetic (test 61).
+- **Part B, Step 4 complete (2026-10-21):** M4 `src/domain/calculation.ts` + `tests/domain/calculation.test.ts` (tests 41–61, 102–108), built test-first (red: 28 failed → green).
+  - `npm test` → 77 passed (the sweep in test 108 takes ≈ 3.9 s); `npm run typecheck` → 0 errors.
+  - The exports are `roundToCents` and `calculateMortgage`. M4 uses a private `Decimal.clone({ precision: 40, rounding: ROUND_HALF_UP })`. It has the amount-due loop with early termination and the zero-tail rule. `numberOfPayments` is the number of payments actually made.
+  - Mutation check: the early-termination tests (102–106, 108) and the zero-tail test (106) fail when the respective rule is removed. Only test 106 guards the zero-tail rule: the sweep domain contains no such case.
+  - **Step 5 notes:**
+    - `formatMoney` receives cents-rounded `Decimal`s, but must still round half up with an **explicit** mode (`toFixed(2, Decimal.ROUND_HALF_UP)`), never the global default (test 67, 04 #16).
+    - It must use ASCII spaces only (test 68).
 
 ## Open Questions
 - Author decisions on findings #7–#24 in `docs/v1/04-review.md` (all Minor). Still undecided: `-0` (#9), space grouping / NBSP (#12), term `"10,0"` (#13), duplicated rounding and limits (#16, #17), the `ui → domain` rule (#18).
@@ -64,4 +71,4 @@ Part B, following `docs/v1/05-plan.md` section 3. Each step is test-first and en
 8. CLI adapter (M8): tests 85–88, 111–112 (107 total).
 9. Main + e2e (M9): tests 89–92, 110 (112 total).
 
-**Steps 1–3: done. Current step: 4 (Calculation, M4): tests 41–61, 102–108 → 77 tests in total.**
+**Steps 1–4: done. Current step: 5 (Formatting, M5): tests 62–68 → 84 tests in total.**
