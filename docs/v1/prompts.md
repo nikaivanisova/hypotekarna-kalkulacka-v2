@@ -328,3 +328,36 @@ Min/max recorded as inclusive.
   - **Risks:** the addressed findings (early payoff, sub-half-cent tail rule, line-queue reader, strict grammar, property sweep, trade-offs) plus implementation risks (ES-module spying for tests 82–83, sweep runtime, `npx` spawn on Windows, CRLF, global Decimal rounding) and the unconfirmed points.
 - Updated `docs/handoff.md` (Part A complete, Part B ready).
 - Committed as "docs: create final execution plan (05-plan.md)".
+
+## Prompt 9 — Part B, Step 1: project setup, domain types, architecture guard
+
+### Prompt
+
+> Read `docs/v1/05-plan.md`. We are starting Part B (Build V1), Step 1.
+>
+> Execute Step 1 according to the plan:
+> 1. Set up project configuration: `package.json`, `tsconfig.json`, `vitest.config.ts`, installing `decimal.js` as the sole runtime dependency, and `typescript`, `tsx`, and `vitest` as dev dependencies.
+> 2. Implement Module 1 (`src/types.ts`) with shared data types and interfaces.
+> 3. Write architecture dependency tests (`tests/architecture.test.ts`) covering test IDs 93, 94, and 95 from `docs/v1/03-test-scenarios.md`.
+> 4. Run `npm test` and type-checking to verify that tests 93-95 pass.
+>
+> After verifying Step 1 completion:
+> 1. Log this build step into `docs/v1/prompts.md` as Prompt 9.
+> 2. Update `docs/handoff.md` showing Step 1 complete and Step 2 (Parsing) ready.
+> 3. Make a git commit with the message specified in `05-plan.md` for Step 1: "feat: setup project structure and domain types".
+
+### Output
+
+- **Configuration:** `package.json` (`"type": "module"`, `engines.node >= 24`, scripts `test` / `start` / `typecheck`), `tsconfig.json` (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `module`/`moduleResolution: NodeNext`, `verbatimModuleSyntax`, `noEmit`), `vitest.config.ts` (`tests/**/*.test.ts`), `.gitignore`.
+- **Dependencies:** `decimal.js` 10.6.0 is the only runtime dependency. Dev dependencies: `typescript` 5.9.3, `tsx` 4.23.15, `vitest` 5.0.5, `@types/node` 24.
+  - npm initially chose TypeScript 7 and `@types/node` 26. They were pinned to `^5` / `^24` to match 02 §1 (TypeScript 5) and the Node 24 runtime.
+- **M1:** `src/domain/types.ts`, exactly as in 02 M1, with `numberOfPayments` documented as the payments actually made.
+  - The path follows 05-plan / 02 (`src/domain/`), not `src/types.ts` as written in the prompt, because the layer rules and test 94 depend on it.
+  - It uses `import type { Decimal } from 'decimal.js'`: under NodeNext, the default import resolves to a namespace (TS2709).
+- **Architecture guard:** `tests/architecture.test.ts` with tests 93–95 (`test_architecture_dependency_direction`, `test_architecture_domain_has_no_io`, `test_architecture_no_circular_dependencies`).
+  - It has an explicit per-layer allow-list, an I/O-global check and a DFS cycle check.
+  - Each test also asserts that the checker rejects known-bad edges and cycles, so it cannot pass vacuously.
+  - Confirmed by temporarily adding violating files to `src/`: all 3 tests failed with the expected messages, then passed again after the files were removed.
+- **Verification:** `npm test` → 1 file, **3 passed (3)**; `npm run typecheck` → 0 errors.
+- Commit message: the exact Step 1 message from `05-plan.md` §3 was used ("feat: scaffold project and add domain types with architecture guard (M1)"), because the message quoted in the prompt differs from the plan.
+- Updated `docs/handoff.md`.

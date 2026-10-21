@@ -4,7 +4,7 @@ Notes for whoever picks up this project next: current state, open questions, and
 
 ## Current State
 
-**Part A (Planning): complete.** **Part B (Build V1): ready to start**, at Step 1 of `docs/v1/05-plan.md`.
+**Part A (Planning): complete.** **Part B (Build V1): in progress.** Step 1 of `docs/v1/05-plan.md` is complete (3/3 tests green). Step 2 (Parsing, M2) is next.
 
 - Base project structure created (docs, README, CLAUDE.md, git repo).
 - Layer 1 (functional definition) approved: `docs/v1/01-functional.md`.
@@ -27,7 +27,15 @@ Notes for whoever picks up this project next: current state, open questions, and
   - 03 now has 112 tests (96–112 new) and reference REF-ET (exact rationals, Appendix B).
 - Final execution plan complete: `docs/v1/05-plan.md`.
   - Goals G1–G4, all 112 test names mapped to 9 build steps, acceptance criteria AC-1–AC-7, a per-step Definition of Done, tooling, and risks.
-- No source code exists yet.
+- **Part B, Step 1 complete (2026-10-21):** project scaffold, M1 `src/domain/types.ts`, and the architecture guard `tests/architecture.test.ts` (tests 93–95).
+  - `npm test` → 3 passed; `npm run typecheck` → 0 errors. `npm start` has no `src/main.ts` yet; that is expected until Step 9.
+  - Versions: Node 24.20.0, npm 11.19.0, decimal.js 10.6.0 (only runtime dependency), TypeScript 5.9.3, tsx 4.23.15, Vitest 5.0.5, @types/node 24.
+  - **Conventions for the next steps:**
+    - Import decimal.js as a **named** import: `import { Decimal } from 'decimal.js'`. The default import is a namespace under NodeNext.
+    - Relative imports use the `.js` extension (`./types.js`), as NodeNext ESM requires.
+    - Tests live in `tests/<layer>/<module>.test.ts`, and every `it()` name is copied verbatim from 03.
+  - The architecture guard's allow-list: domain → domain/types; input/output → domain/types (plus validation → parsing, presentation → formatting); app → domain, input, output; ui → app, domain/types; main → ui. Node built-ins and `process`/`console` are only allowed in ui/ and main; decimal.js is allowed in domain/input/output/app.
+  - npm 11 warns that esbuild's install script was not approved (`npm install-scripts`). Vitest and tsx work without it; no action is needed.
 
 ## Open Questions
 - Author decisions on findings #7–#24 in `docs/v1/04-review.md` (all Minor). Still undecided: `-0` (#9), space grouping / NBSP (#12), term `"10,0"` (#13), duplicated rounding and limits (#16, #17), the `ui → domain` rule (#18).
@@ -45,4 +53,4 @@ Part B, following `docs/v1/05-plan.md` section 3. Each step is test-first and en
 8. CLI adapter (M8): tests 85–88, 111–112 (107 total).
 9. Main + e2e (M9): tests 89–92, 110 (112 total).
 
-**Current step: 1 (not started).**
+**Step 1: done. Current step: 2 (Parsing, M2): tests 1–16, 96–100 → 24 tests in total.**
