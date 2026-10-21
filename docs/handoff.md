@@ -19,13 +19,17 @@ Notes for whoever picks up this project next: current state, open questions, and
   - **Blocker #1:** the §4.4 final-payment rule gives negative final payments for valid inputs (e.g. P = 1 000.29, 20 %, 30 y → Final −97.42).
   - Major: the M8 readline adapter breaks with piped stdin/EOF (e2e 89–92); the number grammar is undefined (decimal.js accepts `0x…`, `Infinity`, `NaN`); there is no domain-wide invariant test; extra payments and variable rates touch 5+ modules.
   - All financial reference values in 03 were re-verified with exact rational arithmetic: 0 errors.
+- Review findings #1–#6 resolved (2026-10-21) and applied to 01/02/03:
+  - #1 early termination when the amount due ≤ the regular payment (01 §4.4); #2 line-queue terminal reader (02 M8, ADR-10); #3 strict number grammar before decimal.js (01 §3.2, 02 M2); #4 property sweep (test 108; Final ≤ Regular only for early-terminated loans); #5/#6 accepted trade-offs (ADR-9, V2 schedule module).
+  - 03 now has 112 tests (96–112 new) and reference REF-ET (exact rationals, Appendix B).
 - No source code exists yet.
 
 ## Open Questions
-- Author decisions on all findings in `docs/v1/04-review.md`, especially #1 (how to handle a negative or early-payoff final payment), which changes FR-1/FR-2, M4 and tests 43–60.
+- Author decisions on findings #7–#24 in `docs/v1/04-review.md` (all Minor). Still undecided: `-0` (#9), space grouping / NBSP (#12), term `"10,0"` (#13), duplicated rounding and limits (#16, #17), the `ui → domain` rule (#18).
+- Whether to display the number of payments when a loan ends early (V1 outputs do not show it).
 
 ## Next Steps
-- Fill in `Author Decision` / `Reason` in `04-review.md`, then update 01/02/03 for the accepted findings (resolve Blocker #1 before implementing M4).
+- Decide findings #7–#24 in `04-review.md` and update 01/02/03 where accepted.
 - Scaffold the project: `package.json` (scripts `test`, `start`, `typecheck`), `tsconfig.json` (strict), install `decimal.js`, `vitest`, `tsx`, `typescript`.
 - Implement test-first, module by module, using the test names from `03-test-scenarios.md` verbatim: M4 calculation → M2 parsing → M3 validation → M5 formatting → M6 presentation → M7 calculator → M8 CLI → M9 main → e2e.
 - Add `tests/architecture.test.ts` (tests 93–95) to enforce the dependency rules.

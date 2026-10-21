@@ -1,6 +1,6 @@
 # 03 — Test Scenarios (V1)
 
-Status: **Proposed** (2026-10-21)
+Status: **Proposed** (2026-10-21). Revised 2026-10-21 after the independent review ([`04-review.md`](04-review.md) findings #1–#4): tests 96–112 added (strict number grammar, early termination, property-based invariant sweep, stream-based terminal reader). Existing test numbers are unchanged.
 
 Sources: [`01-functional.md`](01-functional.md) (FR-1, FR-2, FR-3; sections 3–4) and [`02-architecture.md`](02-architecture.md) (modules M1–M9).
 
@@ -21,8 +21,9 @@ Sources: [`01-functional.md`](01-functional.md) (FR-1, FR-2, FR-3; sections 3–
 
 | ID | Source |
 |---|---|
-| **REF-PY** | Independent reference script in Python 3.14 using the standard-library `decimal` module (60 significant digits, `ROUND_HALF_UP`). It implements sections 4.1–4.5 with the month-by-month balance run, and checks every final payment against the closed-form remaining balance `B = P(1+r)^(n−1) − M·((1+r)^(n−1) − 1)/r` (both must round to the same cent). The script is in the Appendix. |
+| **REF-PY** | Independent reference script in Python 3.14 using the standard-library `decimal` module (60 significant digits, `ROUND_HALF_UP`). It implements sections 4.1–4.5 with the month-by-month balance run, and checks every final payment against the closed-form remaining balance `B = P(1+r)^(n−1) − M·((1+r)^(n−1) − 1)/r` (both must round to the same cent). The script is in Appendix A. |
 | **REF-PMT** | Second, independent check in a different language: a float implementation of the PMT formula `M = P·r / (1 − (1+r)^−n)` plus the balance run in Node.js. It agreed with REF-PY on every regular payment (to 9 decimals) and on every final payment after rounding. The same regular payment can be checked in any spreadsheet with `=ROUND(PMT(rate/1200; term*12; -P); 2)`. |
+| **REF-ET** | Reference script for the revised section 4.4 (early termination) in Python using exact rational arithmetic (`fractions.Fraction`, no precision limit, round half up). It runs the month-by-month amount due `D = B·(1+r)`, stops at month n or when `D ≤ M_rounded`, and applies the "rounds to €0.00" rule. It reproduces every value of tests 43–59 and 91 unchanged, because none of those loans ends early, and it is the only source for tests 102–110. REF-PY's closed-form cross-check assumes a full term, so REF-PY does not apply to early-terminated loans. The script is in Appendix B. |
 | **MANUAL** | Hand calculation shown in the cell (simple arithmetic or a direct reading of a spec rule). |
 | **SPEC §x** | The expected result follows directly from the cited section of `01-functional.md` or `02-architecture.md`. |
 
@@ -65,7 +66,7 @@ These strings were not fixed in 01/02. This document defines them, and the prese
 | 13 | `test_parse_multiple_dots_rejected` | unit | parsing (M2) / FR-3 | `"1.000.50"` → error `not_a_number` | SPEC §3.2 | invalid input |
 | 14 | `test_parse_multiple_commas_rejected` | unit | parsing (M2) / FR-3 | `"1,000,50"` → error `not_a_number` | SPEC §3.2 | invalid input |
 | 15 | `test_parse_currency_symbol_rejected` | unit | parsing (M2) / FR-3 | `"1000 €"` → error `not_a_number` | SPEC §3.3 | invalid input |
-| 16 | `test_parse_scientific_notation_rejected` | unit | parsing (M2) / FR-3 | `"1e5"` → error `not_a_number` (only digits, one separator, optional leading `-`) | SPEC §3.2 (derived) | invalid input |
+| 16 | `test_parse_scientific_notation_rejected` | unit | parsing (M2) / FR-3 | `"1e5"` → error `not_a_number` (fails `NUMBER_PATTERN`: only digits, one separator, optional leading `-`) | SPEC §3.2 (strict grammar) | invalid input |
 | 17 | `test_validate_all_valid_inputs` | unit | validation (M3) / FR-3 | loan `"100 000"`, rate `"3,5"`, term `"30"` → ok, principal `100000`, annualRatePercent `3.5`, termYears `30` | SPEC §3.1 | happy path |
 | 18 | `test_validate_loan_min_inclusive` | unit | validation (M3) / FR-3 | loan `"1000"` (rate `"3"`, term `"10"`) → ok | SPEC §3.1 | edge case |
 | 19 | `test_validate_loan_max_inclusive` | unit | validation (M3) / FR-3 | loan `"1 000 000,00"` (rate `"3"`, term `"10"`) → ok | SPEC §3.1 | edge case |
@@ -109,7 +110,7 @@ These strings were not fixed in 01/02. This document defines them, and the prese
 | 57 | `test_zero_rate_30y_final_lower` | unit | calculation (M4) / FR-1, FR-2 | P=1000, rate=0%, term=30y → Regular **2.78** (2.777…), Final **1.98** (1000 − 2.78×359), Total Paid **1000.00**, Interest **0.00** | MANUAL, REF-PY | edge case |
 | 58 | `test_zero_rate_max_loan_30y` | unit | calculation (M4) / FR-1, FR-2 | P=1000000, rate=0%, term=30y → Regular **2777.78**, Final **2776.98** (1000000 − 2777.78×359), Total Paid **1000000.00**, Interest **0.00** | MANUAL, REF-PY | edge case |
 | 59 | `test_zero_rate_exact_half_cent_rounds_up` | unit | calculation (M4) / FR-1, FR-2 | P=1000.14, rate=0%, term=1y → M=83.345 exactly → Regular **83.35** (half-even would give 83.34), Final **83.29** (1000.14 − 83.35×11), Total Paid **1000.14**, Interest **0.00** | MANUAL, REF-PY | edge case |
-| 60 | `test_calculation_invariants_hold` | unit | calculation (M4) / FR-1, FR-2 | For every input in tests 43–59: `totalPaid = regular×(n−1) + final`; `totalInterest = totalPaid − P`; `finalPayment > 0`; `totalInterest ≥ 0`; `totalInterest = 0` when rate = 0 | SPEC §4.4, §4.5 | edge case |
+| 60 | `test_calculation_invariants_hold` | unit | calculation (M4) / FR-1, FR-2 | For every input in tests 43–59: `numberOfPayments = n` (none ends early); `totalPaid = regular×(n−1) + final`; `totalInterest = totalPaid − P`; `finalPayment > 0`; `totalInterest ≥ 0`; `totalInterest = 0` when rate = 0. The whole input domain is covered by test 108 | SPEC §4.4, §4.5 | edge case |
 | 61 | `test_calculation_leaves_global_decimal_config_unchanged` | unit | calculation (M4) / FR-1 | Set `Decimal.set({precision: 5, rounding: ROUND_DOWN})`, then call with P=100000, 3.5%, 30y → result still Regular **449.04**, Final **452.02**; global config still `precision 5, ROUND_DOWN` | 02 M4 (private clone), REF-PY | edge case |
 | 62 | `test_format_money_thousands_separator` | unit | formatting (M5) / FR-1, FR-2 | `1234.57` → `"1 234,57 €"` | SPEC §3.4 (example) | happy path |
 | 63 | `test_format_money_below_thousand` | unit | formatting (M5) / FR-1, FR-2 | `449.04` → `"449,04 €"` | SPEC §3.4 | happy path |
@@ -145,6 +146,23 @@ These strings were not fixed in 01/02. This document defines them, and the prese
 | 93 | `test_architecture_dependency_direction` | unit | all modules (02 §4) / — | Scan every `import` in `src/` → no import breaks rules 1–6 (e.g. `domain/` → `ui/` is a failure) | 02 §4 | happy path |
 | 94 | `test_architecture_domain_has_no_io` | unit | calculation (M4), types (M1) / FR-1, FR-2 | `src/domain/**` imports only `decimal.js` and `./types`; no `node:*`, `process` or `console` usage | 02 §4 rule 2 | edge case |
 | 95 | `test_architecture_no_circular_dependencies` | unit | all modules (02 §4) / — | The import graph of `src/` has no cycles | 02 §4 rule 6 | edge case |
+| 96 | `test_parse_hex_binary_octal_rejected` | unit | parsing (M2) / FR-3 | `"0x3E8"`, `"0b1010"`, `"0o17"` → error `not_a_number` each (decimal.js would accept them; `NUMBER_PATTERN` runs first) | SPEC §3.2 (strict grammar), 02 M2 | invalid input |
+| 97 | `test_parse_nan_and_infinity_rejected` | unit | parsing (M2) / FR-3 | `"NaN"`, `"Infinity"`, `"-Infinity"` → error `not_a_number` each | SPEC §3.2 (strict grammar) | invalid input |
+| 98 | `test_parse_exponent_variants_rejected` | unit | parsing (M2) / FR-3 | `"1E5"`, `"1e-2"`, `"2,5e3"` → error `not_a_number` each | SPEC §3.2 (strict grammar) | invalid input |
+| 99 | `test_parse_separator_without_digits_rejected` | unit | parsing (M2) / FR-3 | `"1000,"`, `",50"`, `".5"` → error `not_a_number` each | SPEC §3.2 (strict grammar) | invalid input |
+| 100 | `test_parse_sign_other_than_leading_minus_rejected` | unit | parsing (M2) / FR-3 | `"+30"`, `"−5000"` (U+2212), `"5000-"` → error `not_a_number` each | SPEC §3.2 (strict grammar) | invalid input |
+| 101 | `test_validate_hex_loan_amount_rejected` | unit | validation (M3) / FR-3 | loan `"0x3E8"`, rate `"3"`, term `"10"` → errors `[{loanAmount, not_a_number}]` (not accepted as 1 000) | SPEC §3.2, §3.3 | invalid input |
+| 102 | `test_early_termination_rounded_up_payment` | unit | calculation (M4) / FR-1, FR-2 | P=1000.29, rate=20%, term=30y → M=16.715032816…, Regular **16.72**, numberOfPayments **354** (of 360), Final **8.08**, Total Paid **5910.24**, Interest **4909.95** (the old rule would have given Final −97.42) | REF-ET | edge case |
+| 103 | `test_early_termination_largest_overpayment` | unit | calculation (M4) / FR-1, FR-2 | P=1011.06, rate=20%, term=30y → M=16.895001529…, Regular **16.90**, numberOfPayments **354**, Final **8.63**, Total Paid **5974.33**, Interest **4963.27** | REF-ET | edge case |
+| 104 | `test_early_termination_round_loan_amount` | unit | calculation (M4) / FR-1, FR-2 | P=1000, rate=10%, term=30y → M=8.775715700…, Regular **8.78**, numberOfPayments **359**, Final **7.88**, Total Paid **3151.12**, Interest **2151.12** | REF-ET | edge case |
+| 105 | `test_early_termination_one_month_early_low_rate` | unit | calculation (M4) / FR-1, FR-2 | P=1001.01, rate=8%, term=30y → M=7.345056760…, Regular **7.35**, numberOfPayments **359**, Final **7.33**, Total Paid **2638.63**, Interest **1637.62** | REF-ET | edge case |
+| 106 | `test_early_termination_remainder_rounds_to_zero` | unit | calculation (M4) / FR-1, FR-2 | P=1075.15, rate=20%, term=30y → M=17.965957405…, Regular **17.97**; the month-356 amount due is 0.004910… and rounds to 0.00, so month 355 is the last: numberOfPayments **355**, Final **17.97** (= Regular), Total Paid **6379.35** (17.97 × 355), Interest **5304.20** | REF-ET, SPEC §4.4 step 3 | edge case |
+| 107 | `test_full_term_final_far_below_regular` | unit | calculation (M4) / FR-1, FR-2 | P=1003.93, rate=20%, term=20y → M=17.055009882…, Regular **17.06**, numberOfPayments **240** (full term, no early termination), Final **1.54**, Total Paid **4078.88**, Interest **3074.95** | REF-ET | edge case |
+| 108 | `test_calculation_invariants_property_sweep` | unit | calculation (M4) / FR-1, FR-2 | Seeded sweep with no extra dependency: grid P = 1000.00 … 1005.99 (step 0.01) × rate ∈ {8, 10, 15, 20} % × term ∈ {25, 30} y (4 800 inputs) plus 2 000 seeded random valid inputs (P, rate, term uniform over 01 §3.1). For **every** result: `finalPayment > 0`; `totalPaid` = sum of payments = `regular×(numberOfPayments−1) + final`; `totalInterest = totalPaid − P ≥ 0`; `numberOfPayments ≤ n`; if `numberOfPayments < n` then `finalPayment ≤ regularPayment`; if rate = 0 then `numberOfPayments = n`. (REF-ET on the same domain: 6 800 inputs, 767 end early, 0 violations.) | REF-ET, SPEC §4.4, §4.5 | edge case |
+| 109 | `test_calculator_early_termination_equal_final_hidden` | functional | calculator (M7) / FR-1, FR-2 | raw `"1 075,15"`, `"20"`, `"30"` → kind `result`; 3 lines: `Regular Monthly Payment: 17,97 €`, `Total Paid: 6 379,35 €`, `Total Interest: 5 304,20 €` (no `Final Payment` line, because Final = Regular) | REF-ET, SPEC §2 Outputs | edge case |
+| 110 | `test_e2e_cli_early_termination` | e2e | main + cli → all modules / FR-1, FR-2 | stdin `"1000,29\n20\n30\n"` → stdout contains `Regular Monthly Payment: 16,72 €`, `Final Payment: 8,08 €`, `Total Paid: 5 910,24 €`, `Total Interest: 4 909,95 €`; exit `0` | REF-ET | edge case |
+| 111 | `test_node_terminal_io_answers_all_piped_lines` | functional | cli (M8) / FR-3 | `createNodeTerminalIo(input, output)` with in-memory `PassThrough` streams; write `"100 000\n3,5\n30\n"` as **one chunk** and end the input before the first `ask` → the first three `ask` calls return `"100 000"`, `"3,5"`, `"30"` in order, the 4th returns `undefined`; `output` contains the three prompts | 02 M8 (Terminal reader), ADR-10 | edge case |
+| 112 | `test_node_terminal_io_pending_ask_resolves_at_eof` | functional | cli (M8) / FR-3 | Call `ask("Loan amount (EUR): ")` with no input yet, then end the input stream → the promise resolves to `undefined` (it must not hang; test timeout 1 s) | 02 M8 (Terminal reader), ADR-10 | edge case |
 
 ---
 
@@ -154,22 +172,22 @@ These strings were not fixed in 01/02. This document defines them, and the prese
 
 | Requirement | Tests |
 |---|---|
-| **FR-1** Calculate monthly payment | 41–61, 62–65, 67–73, 80–81, 86, 89–91, 94 |
-| **FR-2** Calculate totals | 43–60, 62–66, 72–73, 80–81, 86, 89–91, 94 |
-| **FR-3** Validate inputs | 1–40, 74–80, 82–85, 87–89, 91–92 |
+| **FR-1** Calculate monthly payment | 41–61, 62–65, 67–73, 80–81, 86, 89–91, 94, 102–110 |
+| **FR-2** Calculate totals | 43–60, 62–66, 72–73, 80–81, 86, 89–91, 94, 102–110 |
+| **FR-3** Validate inputs | 1–40, 74–80, 82–85, 87–89, 91–92, 96–101, 111–112 |
 
 ### By module
 
 | Module | Happy path | Edge case | Invalid input |
 |---|---|---|---|
-| parsing (M2) | 1–4 | 5–7 | 8–16 |
-| validation (M3) | 17 | 18–19, 24–26, 30–31, 35, 40 | 20–23, 27–29, 32–34, 36–39 |
-| calculation (M4) | 43–46 | 41–42, 47–61 | via 82–83 (see note) |
+| parsing (M2) | 1–4 | 5–7 | 8–16, 96–100 |
+| validation (M3) | 17 | 18–19, 24–26, 30–31, 35, 40 | 20–23, 27–29, 32–34, 36–39, 101 |
+| calculation (M4) | 43–46 | 41–42, 47–61, 102–108 | via 82–83 (see note) |
 | formatting (M5) | 62–64 | 65–68 | — (only receives `Decimal`s) |
 | presentation (M6) | 71–72 | 69–70, 73, 79 | 74–78 |
-| calculator (M7) | 80 | 81 | 82–84 |
-| cli (M8) | 85–86 | 88 | 87 |
-| e2e | 89 | 90, 92 | 91 |
+| calculator (M7) | 80 | 81, 109 | 82–84 |
+| cli (M8) | 85–86 | 88, 111–112 | 87 |
+| e2e | 89 | 90, 92, 110 | 91 |
 | architecture | 93 | 94–95 | — |
 
 **Note on invalid input for calculation (M4):** by design (02 §3, M4 and M7), `calculateMortgage` accepts only a validated `LoanInput`, and invalid values can never reach it. Its invalid-input coverage is the guarantee that it is **never called** for invalid input (tests 82–83, spy count 0). The input boundaries it relies on are covered by tests 18–40.
@@ -187,11 +205,17 @@ These strings were not fixed in 01/02. This document defines them, and the prese
 | Multiple decimal points | 12–14, 91 |
 | Final payment = / ≠ regular (±€0.01) | 47, 48, 69–71, 73, 90 |
 | Min / max boundaries (inclusive and just outside) | 18–21, 25–27, 30–33, 50–52 |
-| Full E2E (prompt → displayed output) | 89–92 |
+| Full E2E (prompt → displayed output) | 89–92, 110 |
+| Early termination (loan repaid before month n) | 102–106, 108–110 (and 107 as the full-term counter-case) |
+| Strict number grammar (hex, exponent, `NaN`, `Infinity`, bare separators, signs) | 16, 96–101 |
+| Invariants over the whole valid input domain | 108 |
+| Piped stdin and EOF in the real terminal reader | 89–92, 110–112 |
 
 ---
 
-## Appendix — Reference script (REF-PY)
+## Appendix A — Reference script (REF-PY)
+
+This script implements section 4.4 as it was before the review revision (always n payments). It is valid for every loan that runs the full term, which includes all of tests 43–59 and 91. For early-terminated loans use REF-ET (Appendix B).
 
 Run with Python 3.8+ (no third-party packages):
 
@@ -222,4 +246,70 @@ def calc(P, rate, years):
 print(calc('100000', '3.5', 30))
 # {'M': Decimal('449.0446878088…'), 'regular': Decimal('449.04'), 'final': Decimal('452.02'),
 #  'total_paid': Decimal('161657.38'), 'total_interest': Decimal('61657.38')}
+```
+
+## Appendix B — Reference script (REF-ET, revised section 4.4)
+
+Run with Python 3.8+ (no third-party packages). Exact rational arithmetic, so there is no precision limit.
+
+```python
+from fractions import Fraction as F
+import math, random
+
+def rc(x):                                   # round half up to cents, exact
+    c = x * 100; s = -1 if c < 0 else 1; c = abs(c); fl = math.floor(c)
+    return F(s * (fl + (1 if c - fl >= F(1, 2) else 0)), 100)
+
+def calc(P, rate, years):
+    P = F(P); r = F(rate) / 1200; n = years * 12
+    M = P * r * (1 + r) ** n / ((1 + r) ** n - 1) if r > 0 else P / n
+    Mr = rc(M); B = P
+    for k in range(1, n + 1):                # section 4.4 step 2
+        D = B * (1 + r)                      # balance + interest accrued this month
+        if k == n or D <= Mr:
+            break                            # last active month (early termination if k < n)
+        B = D - Mr
+    final, payments = rc(D), k
+    if final == 0:                           # section 4.4 step 3: remainder rounds to 0.00
+        final, payments = Mr, k - 1
+    total = Mr * (payments - 1) + final
+    return dict(regular=Mr, payments=payments, n=n, final=final, total=total, interest=total - P)
+
+def show(t, *a):
+    x = calc(*a)
+    print(t, a, 'regular', float(x['regular']), 'payments', x['payments'], 'final', float(x['final']),
+          'total', float(x['total']), 'interest', float(x['interest']))
+
+for t, a in [(102, ('1000.29', '20', 30)), (103, ('1011.06', '20', 30)), (104, ('1000', '10', 30)),
+             (105, ('1001.01', '8', 30)), (106, ('1075.15', '20', 30)), (107, ('1003.93', '20', 20)),
+             (43, ('100000', '3.5', 30)), (52, ('1000', '20', 30))]:
+    show(t, *a)
+
+random.seed(7)                               # test 108 domain
+grid = [(c, rt, y) for c in range(100000, 100600) for rt in (2000, 1500, 1000, 800) for y in (30, 25)]
+grid += [(random.randint(100000, 100000000), random.randint(0, 2000), random.randint(1, 30)) for _ in range(2000)]
+early = bad = 0
+for c, rt, y in grid:
+    P = F(c, 100); x = calc(P, F(rt, 100), y)
+    payments = [x['regular']] * (x['payments'] - 1) + [x['final']]
+    is_early = x['payments'] < x['n']; early += is_early
+    ok = (x['final'] > 0 and sum(payments) == x['total'] and x['payments'] <= x['n']
+          and x['interest'] == x['total'] - P and x['interest'] >= 0
+          and (not is_early or x['final'] <= x['regular']) and (rt != 0 or not is_early))
+    bad += not ok
+print('sweep', len(grid), 'early', early, 'violations', bad)
+```
+
+Output:
+
+```
+102 ('1000.29', '20', 30) regular 16.72 payments 354 final 8.08 total 5910.24 interest 4909.95
+103 ('1011.06', '20', 30) regular 16.9 payments 354 final 8.63 total 5974.33 interest 4963.27
+104 ('1000', '10', 30) regular 8.78 payments 359 final 7.88 total 3151.12 interest 2151.12
+105 ('1001.01', '8', 30) regular 7.35 payments 359 final 7.33 total 2638.63 interest 1637.62
+106 ('1075.15', '20', 30) regular 17.97 payments 355 final 17.97 total 6379.35 interest 5304.2
+107 ('1003.93', '20', 20) regular 17.06 payments 240 final 1.54 total 4078.88 interest 3074.95
+43 ('100000', '3.5', 30) regular 449.04 payments 360 final 452.02 total 161657.38 interest 61657.38
+52 ('1000', '20', 30) regular 16.71 payments 360 final 21.0 total 6019.89 interest 5019.89
+sweep 6800 early 767 violations 0
 ```

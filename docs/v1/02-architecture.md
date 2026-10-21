@@ -1,6 +1,6 @@
 # 02 — Architecture (V1)
 
-Status: **Proposed** (2026-10-20)
+Status: **Proposed** (2026-10-20). Revised 2026-10-21 after the independent review ([`04-review.md`](04-review.md) findings #1, #2, #3, #5, #6): early termination in M4, strict grammar in M2, stream-based terminal reader in M8, documented extension trade-offs (ADR-9, ADR-10).
 
 Source of requirements: [`01-functional.md`](01-functional.md) (FR-1, FR-2, FR-3; Out of Scope list in section 5).
 
@@ -101,7 +101,7 @@ All code samples are TypeScript. `Decimal` refers to the `decimal.js` class.
 
    /** All amounts are already rounded to cents (round half up). */
    export interface MortgageResult {
-     readonly numberOfPayments: number;    // n = termYears × 12
+     readonly numberOfPayments: number;    // k = payments actually made; k = termYears × 12 unless the loan ends early (01 §4.4)
      readonly regularPayment: Decimal;     // M_rounded
      readonly finalPayment: Decimal;
      readonly totalPaid: Decimal;
@@ -154,10 +154,19 @@ All code samples are TypeScript. `Decimal` refers to the `decimal.js` class.
        }
      | { readonly ok: false; readonly error: 'empty' | 'not_a_number' };
 
+   /** Strict number grammar from 01 §3.2, applied after trimming and removing inner spaces. */
+   export const NUMBER_PATTERN: RegExp;  // /^-?[0-9]+([.,][0-9]+)?$/
+
    export function parseNumber(raw: string | undefined): ParseResult;
    ```
 
-   Rules (section 3.2): trim leading and trailing whitespace; remove inner spaces; accept `.` or `,` as the single decimal separator; reject more than one separator (`1,000.50` → `not_a_number`); a leading `-` is parsed, so M3 can report `negative`. `writtenDecimals` counts the digits as typed, so trailing zeros count (`1000,500` is 3 places).
+   Steps, in this order (section 3.2):
+   1. `undefined`, or empty after trimming → `empty`.
+   2. Trim leading and trailing whitespace, then remove inner spaces.
+   3. **Test the text against `NUMBER_PATTERN`.** If it does not match → `not_a_number`. This step is the gatekeeper: `new Decimal()` also accepts hex/binary/octal (`0x3E8`), exponents (`1e5`), `NaN` and `Infinity`, so it must never see text that has not passed the pattern.
+   4. Replace `,` with `.` and create the `Decimal`.
+
+   One separator at most (`1,000.50` → `not_a_number`); a leading `-` is parsed, so M3 can report `negative`. `writtenDecimals` counts the digits as typed, so trailing zeros count (`1000,500` is 3 places).
 
 3. **Implements:** FR-3 (section 3.2 parsing; the "empty" and "not a number" cases in section 3.3).
 4. **Dependencies:** `decimal.js`. No project modules.
@@ -218,20 +227,26 @@ All code samples are TypeScript. `Decimal` refers to the `decimal.js` class.
    Internal steps, which are not exported (sections 4.1–4.5):
    1. `n = termYears × 12`, `r = annualRatePercent ÷ 12 ÷ 100` (full precision).
    2. `M = r > 0 ? P·r·(1+r)ⁿ / ((1+r)ⁿ − 1) : P ÷ n`; then `M_rounded = roundToCents(M)`.
-   3. Balance run: `B = P`; for months 1 … n−1, `B = B·(1+r) − M_rounded`, with no intermediate rounding.
-   4. `finalPayment = roundToCents(B·(1+r))`.
-   5. `totalPaid = M_rounded·(n−1) + finalPayment`; `totalInterest = totalPaid − P`.
+   3. Balance run with early termination (01 §4.4): `B = P`; for `k = 1 … n`: `D = B·(1+r)`; if `k = n` or `D ≤ M_rounded`, stop at month `k`; otherwise `B = D − M_rounded`. No intermediate rounding.
+   4. `finalPayment = roundToCents(D)` and `numberOfPayments = k`. If `finalPayment` is `0.00` (`D < 0.005`), then `numberOfPayments = k − 1` and `finalPayment = M_rounded`.
+   5. `totalPaid = M_rounded·(numberOfPayments−1) + finalPayment`; `totalInterest = totalPaid − P`.
 
    The module uses a private `Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_UP })` so it never depends on or changes global Decimal settings.
 
-   **Invariants covered by tests:** the balance after the final payment is within half a cent of €0.00 before rounding; `totalInterest ≥ 0`; `finalPayment > 0`; at 0 % the final payment equals `P − M_rounded·(n−1)` exactly.
+   **Invariants covered by tests (unit and property-based sweep):**
+   - `finalPayment > 0`.
+   - `numberOfPayments ≤ n`; if `numberOfPayments < n` (early termination), `finalPayment ≤ regularPayment`.
+   - `totalPaid` equals the sum of all payments, i.e. `regularPayment·(numberOfPayments−1) + finalPayment`.
+   - `totalInterest = totalPaid − P ≥ 0`.
+   - The amount left unpaid or overpaid after the final payment is at most half a cent.
+   - At 0 %, the loan always runs the full term and the final payment equals `P − M_rounded·(n−1)` exactly.
 
 3. **Implements:** FR-1 (regular and final payment), FR-2 (totals).
 4. **Dependencies:** M1, `decimal.js`. **Nothing else.** It performs no I/O, holds no state, uses no clock or randomness, and does not know about strings, formatting, validation messages or the UI. It is a pure function of its input.
 5. **Extension points:**
    - *Month-by-month schedule:* extract the balance run (step 3) into an exported generator `amortize(input): Iterable<ScheduleRow>`. `calculateMortgage` then consumes it, so the schedule and totals can never disagree.
    - *Extra / one-off payments:* the balance run gains an optional per-month adjustment hook `(month, balance) => Decimal`.
-   - *Variable rates:* replace the constant `r` with a `rateForMonth(month)` function derived from a `RateSchedule`.
+   - *Variable rates (V2):* the payment must be re-amortised at each rate change, so V2 will introduce a **dedicated schedule calculation module** (e.g. `domain/schedule`) that owns the month-by-month run, the per-period payments and the rate lookup. M4 then delegates to it instead of being extended in place. This is an accepted trade-off of the V1 design (ADR-9, review findings #5, #6).
    - *Other payment frequencies:* replace the constant `12` with `paymentsPerYear`.
    - *Fees, insurance, APR/RPMN:* add a **new** module `domain/costs` that takes `LoanInput` + `MortgageResult` as input. M4 does not change.
    - *Affordability checks:* add a **new** module `domain/affordability` that takes `MortgageResult` + income data. M4 does not change.
@@ -345,14 +360,27 @@ All code samples are TypeScript. `Decimal` refers to the `decimal.js` class.
      close(): void;
    }
 
-   export function createNodeTerminalIo(): TerminalIo;  // node:readline/promises + stdout
+   /** Stream-based line reader over node:readline (see "Terminal reader" below). Streams are injectable for tests. */
+   export function createNodeTerminalIo(
+     input?: NodeJS.ReadableStream,    // default: process.stdin
+     output?: NodeJS.WritableStream,   // default: process.stdout
+   ): TerminalIo;
    export async function runCli(io: TerminalIo): Promise<number>;  // returns the process exit code
    ```
 
-   Behaviour: asks for loan amount, annual interest rate and term (no pre-filled defaults). It passes the answers to `runCalculator`. On `invalid`, it prints each field's message and asks again for the invalid fields only. On `result`, it prints `label: value` lines and exits with code 0. If the input stream closes (Ctrl+D / Ctrl+C), it exits with code 1.
+   Behaviour: asks for loan amount, annual interest rate and term (no pre-filled defaults). It passes the answers to `runCalculator`. On `invalid`, it prints each field's message and asks again for the invalid fields only. On `result`, it prints `label: value` lines and exits with code 0. If the input stream closes (Ctrl+D / Ctrl+C / end of piped input) before all answers are valid, it exits with code 1.
+
+   **Terminal reader (`createNodeTerminalIo`).** It does **not** use sequential `readline/promises` `question()` calls. With piped input, readline emits all buffered lines as `line` events at once, and lines that arrive while no question is pending are lost. A pending question also never settles when the stream ends (review finding #2). Instead:
+   - It creates one `node:readline` interface and subscribes to its `line` and `close` events from the start.
+   - Every `line` event is pushed onto a FIFO **line queue**.
+   - `ask(question)` writes the prompt to `output`. It then resolves immediately with the oldest queued line, or, if the queue is empty, stores a single pending resolver that the next `line` event fulfils.
+   - On `close` (EOF), it marks the reader closed and resolves the pending `ask`, and every later `ask`, with `undefined`. Lines already queued before EOF are still returned first.
+   - `close()` closes the readline interface. It is idempotent.
+
+   This works the same for an interactive TTY and for piped stdin, and it never leaves a promise unsettled.
 
 3. **Implements:** the user-facing part of FR-1, FR-2 and FR-3 (shows results and per-field errors). This resolves OQ-1.
-4. **Dependencies:** M1 (types), M7, `node:readline/promises`. It does **not** import M2–M6 directly.
+4. **Dependencies:** M1 (types), M7, `node:readline`. It does **not** import M2–M6 directly.
 5. **Extension points:**
    - *Web/desktop UI:* add a sibling adapter (e.g. `ui/web`) with the same dependency on M7. M8 stays as is.
    - *Saving / exporting:* add an `--export <file>` option that calls the future `app/export` use case.
@@ -417,11 +445,11 @@ V1 is **stateless**. There is no database, no file storage, no configuration fil
 | Raw request | `RawLoanInput` | Passed to M7 | One call to `runCalculator` |
 | Parsed numbers | `ParseResult` | M3 locals | Inside `validateLoanInput` |
 | Valid request | `LoanInput` (`Decimal` values) | Passed from M3 to M4 | One call |
-| Intermediate values (`n`, `r`, `M`, balance `B`) | `Decimal`, full precision (40 significant digits) | M4 locals | Inside `calculateMortgage`, never exposed |
+| Intermediate values (`n`, `r`, `M`, balance `B`, amount due `D`) | `Decimal`, full precision (40 significant digits) | M4 locals | Inside `calculateMortgage`, never exposed |
 | Result | `MortgageResult` (cents-rounded `Decimal`s) | Passed from M4 to M6 | One call |
 | Display model | `ResultView` / `ErrorView` (`string`s) | Returned by M7 to M8 | Until printed |
 
-**Constants (read-only, in code):** `V1_RULES` (input limits, M3), English labels and messages (M6), months per year = 12 and Decimal precision/rounding (M4).
+**Constants (read-only, in code):** `NUMBER_PATTERN` (number grammar, M2), `V1_RULES` (input limits, M3), English labels and messages (M6), months per year = 12 and Decimal precision/rounding (M4).
 
 **Monetary representation:** every money value and rate is a `Decimal`, never a JS `number`. The term in years and `numberOfPayments` are plain integers.
 
@@ -456,8 +484,8 @@ V1 is **stateless**. There is no database, no file storage, no configuration fil
 
 ### ADR-6 — Final payment via full-precision balance run
 - **Decision:** M4 computes the final payment by running the balance forward month by month in full precision (section 4.4), not with a closed-form shortcut.
-- **Reason:** It follows the specification literally, so the balance ends at exactly €0.00 for every rate including 0 %. The same loop is the natural seed for the out-of-scope repayment schedule, extra payments and variable rates.
-- **Alternative considered:** a closed-form remaining-balance formula `B_{n−1} = P(1+r)^{n−1} − M_rounded·((1+r)^{n−1} − 1)/r`. It is faster (360 iterations are negligible), but it needs a separate r = 0 branch and is harder to extend.
+- **Reason:** It follows the specification literally, so the balance ends at €0.00 (to the cent) for every rate including 0 %, and it detects early termination (01 §4.4) at the month where it happens. The same loop is the natural seed for the out-of-scope repayment schedule, extra payments and variable rates.
+- **Alternative considered:** a closed-form remaining-balance formula `B_{n−1} = P(1+r)^{n−1} − M_rounded·((1+r)^{n−1} − 1)/r`. It is faster (360 iterations are negligible), but it needs a separate r = 0 branch, cannot find the month where an early termination happens, and is harder to extend.
 
 ### ADR-7 — Dependency rules enforced by a test, not a linter plugin
 - **Decision:** A Vitest test (`tests/architecture.test.ts`) parses imports and fails on forbidden directions or cycles.
@@ -469,19 +497,29 @@ V1 is **stateless**. There is no database, no file storage, no configuration fil
 - **Reason:** Pure functions can be unit-tested with plain input/output assertions, and the CLI can be tested end-to-end with a fake `TerminalIo` that scripts answers and captures printed lines.
 - **Alternative considered:** calling `readline`/`console.log` directly inside the calculator flow. It was rejected because it couples logic to the terminal and blocks UI replacement.
 
+### ADR-9 — Accept extension friction for extra payments and variable rates (review findings #5, #6)
+- **Decision:** Keep the V1 module structure unchanged. The independent review showed that extra payments would change 5–6 existing modules and variable rates 5 (including a breaking change to `LoanInput` and the single `regularPayment` in `MortgageResult`). Both are out of scope for V1 and are accepted as documented trade-offs. For V2, variable rates will introduce a **dedicated schedule calculation module** (e.g. `domain/schedule`) that owns the month-by-month run and per-period re-amortisation, rather than extending M4 in place.
+- **Reason:** Generalising the types and the balance run now would add complexity that no V1 requirement uses (YAGNI). The pure core and the dependency rules keep the later change contained to `domain/`, `input/` and `output/`, with no change to the dependency direction.
+- **Alternative considered:** introducing `RateSchedule`, a list-valued input model and an exported schedule generator in V1. It was rejected because it would design V1 around unconfirmed V2 requirements.
+
+### ADR-10 — Event-driven line queue instead of `readline/promises` questions (review finding #2)
+- **Decision:** `createNodeTerminalIo` buffers `line` events in a FIFO queue and resolves `ask` from it. On `close`, pending and later asks resolve to `undefined` (M8, "Terminal reader").
+- **Reason:** Sequential `rl.question()` calls lose lines from piped stdin and never settle at EOF. This was verified on Node 24.20.0: only the first answer was received, and the process exited with code 13 ("unsettled top-level await"). That breaks the e2e tests and the exit-code-1 rule.
+- **Alternative considered:** `for await (const line of rl)` with a single async iterator. It is equally robust, but it is harder to combine with prompts that must be printed before each line is read, so it was not chosen.
+
 ---
 
 ## 7. Test Strategy (summary)
 
 | Module | Test focus |
 |---|---|
-| M2 parsing | Separators `.`/`,`, inner spaces, trimming, multiple separators → `not_a_number`, `writtenDecimals` counts |
+| M2 parsing | Separators `.`/`,`, inner spaces, trimming, multiple separators → `not_a_number`, `writtenDecimals` counts, strict grammar (hex, exponent, `NaN`, `Infinity`, bare separators, `+` → `not_a_number`) |
 | M3 validation | Every error code per field, inclusive boundaries (min, max, just outside), all errors reported at once |
-| M4 calculation | Reference values from known annuity examples, r = 0 case, final-payment rounding absorption, invariants (section 3, M4) |
+| M4 calculation | Reference values from known annuity examples, r = 0 case, final-payment rounding absorption, early termination, invariants (section 3, M4) checked by a property-based sweep over the valid input domain |
 | M5 formatting | `0 → "0,00 €"`, `1234.565 → "1 234,57 €"`, `1000000 → "1 000 000,00 €"` |
 | M6 presentation | Final payment shown only when it differs by ≥ €0.01; output order; one message per error code |
 | M7 calculator | Calculation is never invoked for invalid input |
-| M8 cli | Scripted `TerminalIo`: happy path, re-prompt only invalid fields, closed stream → exit code 1 |
+| M8 cli | Scripted `TerminalIo`: happy path, re-prompt only invalid fields, closed stream → exit code 1. `createNodeTerminalIo` over an in-memory stream: all piped lines are answered in order, and a pending `ask` resolves to `undefined` at EOF |
 | Architecture | Dependency rules and no cycles (section 4) |
 
 Run all tests with **`npm test`**.

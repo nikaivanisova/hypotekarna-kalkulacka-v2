@@ -239,3 +239,47 @@ Min/max recorded as inclusive.
 - **Reference value audit:** recomputed with exact rational arithmetic (Python `fractions`). **All 18 calculation scenarios, 11 rounding checks and the M claims in 03 are correct.** 40-digit Decimal matched the exact results on 300 random inputs. The scripts and their outputs are in the appendix of 04.
 - Updated `docs/handoff.md`.
 - Committed as "docs: create independent review findings (04-review.md)".
+
+## Prompt 7 — Review resolutions for findings #1–#6
+
+### Prompt
+
+> Update `docs/v1/04-review.md` by populating the 'Author Decision' and 'Reason' columns for findings #1 through #6 with the following resolutions:
+>
+> 1. Finding #1 (Blocker - Negative Final Payment):
+>    - Decision: Accepted.
+>    - Resolution: Update 01-functional.md, 02-architecture.md, and 03-test-scenarios.md so that if compound interest creates an overpayment scenario where the loan balance reaches <= €0.00 before month n, the loan terminates early. The final payment is defined as the exact remaining balance plus accrued interest for that final active month, and any remaining future months are skipped. Update test scenarios to cover early termination cases.
+>
+> 2. Finding #2 (Major - Node readline stdin stream handling):
+>    - Decision: Accepted.
+>    - Resolution: Update 02-architecture.md's CLI module interface to handle EOF gracefully and process piped inputs using a robust stream reader pattern (handling line events rather than relying on sequential readline question promises).
+>
+> 3. Finding #3 (Major - Number formatting and strict parsing):
+>    - Decision: Accepted.
+>    - Resolution: Update 01-functional.md and parsing module specs to strictly enforce regex validation on raw inputs prior to passing to decimal.js, explicitly rejecting hex (0x), exponent notation (1e5), NaN, and Infinity.
+>
+> 4. Finding #4 (Major - Invariant tests):
+>    - Decision: Accepted.
+>    - Resolution: Add a property-based / invariant test scenario to 03-test-scenarios.md that asserts: Total Paid == Sum of Payments, and Final Payment is strictly > 0 and <= Regular Payment.
+>
+> 5. Findings #5 & #6 (Major - Architecture Stress Test out-of-scope friction):
+>    - Decision: Accepted as documented trade-offs.
+>    - Resolution: Retain V1 architecture as designed. Note in 02-architecture.md that V2 extension for variable rates will introduce a dedicated schedule calculation module.
+>
+> Save `04-review.md`, update `01-functional.md`, `02-architecture.md`, and `03-test-scenarios.md` with these accepted changes, and make a git commit with message "docs: update specs with review resolutions (01, 02, 03, 04)".
+
+### Clarification
+
+**Q — Invariant "Final ≤ Regular" (finding #4).** It is false for many verified full-term loans (e.g. test 43: Final 452.02 > Regular 449.04). How should it read?
+
+> **Answer:** Scope it: Final > 0 always; Final ≤ Regular only when the loan ends early.
+
+### Output
+
+- `04-review.md`: Author Decision / Reason filled in for #1–#6; #7–#24 remain open.
+- `01-functional.md`: §3.2 strict grammar `^-?[0-9]+([.,][0-9]+)?$` applied before conversion (rejects hex/binary/octal, exponents, `NaN`, `Infinity`, bare separators, `+` and Unicode signs); §4.4 rewritten with an amount-due loop, early termination, the "rounds to €0.00" rule (previous payment becomes final) and result properties; §4.5 and FR-2 use k = payments made.
+- `02-architecture.md`: M1 `numberOfPayments` = payments made; M2 `NUMBER_PATTERN` and ordered parsing steps; M4 early-termination steps and invariants; M4 V2 note (dedicated schedule module for variable rates); M8 event-driven line-queue terminal reader with injectable streams; ADR-9 (accepted extension friction) and ADR-10 (line queue); test strategy updated.
+- `03-test-scenarios.md`: tests 96–112 added (strict grammar 96–101, early termination 102–106, full-term counter-case 107, property sweep 108, calculator/e2e early termination 109–110, terminal reader 111–112); new reference REF-ET (exact rationals, Appendix B, run as published: sweep 6 800 inputs, 767 early, 0 violations); coverage tables updated. Existing values unchanged.
+- Verified a prototype of the line-queue reader on Node 24.20.0 (piped stdin, CRLF, EOF).
+- Updated `docs/handoff.md`.
+- Committed as "docs: update specs with review resolutions (01, 02, 03, 04)".

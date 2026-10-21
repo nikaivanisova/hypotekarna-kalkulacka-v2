@@ -1,6 +1,6 @@
 # 01 — Functional Definition (V1)
 
-Status: **Approved** (2026-10-20)
+Status: **Approved** (2026-10-20). Revised 2026-10-21 after the independent review ([`04-review.md`](04-review.md) findings #1 and #3): early loan termination (section 4.4) and strict number grammar (section 3.2).
 
 V1 is a calculator for a **fixed-rate annuity mortgage** with monthly payments. Anything beyond that is out of scope (see section 5).
 
@@ -16,8 +16,8 @@ V1 is a calculator for a **fixed-rate annuity mortgage** with monthly payments. 
 
 | ID | Short name | Inputs | Outputs | Calculation rule |
 |---|---|---|---|---|
-| FR-1 | Calculate monthly payment | Loan amount, annual interest rate, term (years) | Regular Monthly Payment; Final Payment (only if different) | Annuity formula (section 4.2); final payment absorbs the rounding difference (section 4.4) |
-| FR-2 | Calculate totals | Same as FR-1 | Total Paid, Total Interest | Total Paid = Regular Payment × (n − 1) + Final Payment; Total Interest = Total Paid − Loan Amount |
+| FR-1 | Calculate monthly payment | Loan amount, annual interest rate, term (years) | Regular Monthly Payment; Final Payment (only if different) | Annuity formula (section 4.2); final payment absorbs the rounding difference, and the loan may end before month n (section 4.4) |
+| FR-2 | Calculate totals | Same as FR-1 | Total Paid, Total Interest | Total Paid = Regular Payment × (k − 1) + Final Payment, where k ≤ n is the number of payments made (section 4.5); Total Interest = Total Paid − Loan Amount |
 | FR-3 | Validate inputs | Same as FR-1 | Error message per invalid or missing field | No calculation runs until all inputs pass validation (section 3.3) |
 
 ### Outputs
@@ -50,13 +50,19 @@ V1 is a calculator for a **fixed-rate annuity mortgage** with monthly payments. 
 - Spaces inside a number are ignored and treated as thousands separators: `1 000,50` → `1000.50`.
 - A number may contain at most one decimal separator. `,` and `.` are never treated as thousands separators.
 - Leading and trailing whitespace is ignored.
+- **Strict grammar.** After trimming and removing inner spaces, the text must match the regular expression `^-?[0-9]+([.,][0-9]+)?$`: an optional leading `-`, one or more ASCII digits, and optionally one decimal separator followed by one or more digits. This check runs **before** the text is converted to a number. Anything that does not match is not a number (section 3.3), in particular:
+  - hexadecimal, binary or octal notation (`0x3E8`, `0b1010`, `0o17`),
+  - exponent notation (`1e5`, `1E5`, `2,5e3`),
+  - `NaN`, `Infinity`, `-Infinity`,
+  - a separator without digits on both sides (`1000,`, `,50`, `.5`),
+  - any sign other than a leading `-` (`+30`, `−5000` with U+2212).
 
 ### 3.3 Invalid input
 
 An input is invalid if it is:
 
 - empty or missing,
-- not a number after parsing (section 3.2), including values with more than one decimal separator (e.g. `1,000.50`),
+- not a number after parsing (section 3.2), i.e. not matching the strict grammar, including values with more than one decimal separator (e.g. `1,000.50`),
 - negative,
 - outside its min–max range,
 - written with more decimal places than allowed,
@@ -99,19 +105,29 @@ Behaviour on invalid input:
 
 ### 4.4 Final payment (last payment behaviour)
 
-The final payment absorbs all rounding differences, so the loan balance ends at exactly **€0.00**. This applies to every rate, including 0%.
+The final payment absorbs all rounding differences, so the loan balance ends at **€0.00** (to the cent). This applies to every rate, including 0%.
 
 Calculation (internal only, the schedule is never displayed):
 
 1. Start with balance B = P (full precision).
-2. For months 1 … n − 1: B = B × (1 + r) − M_rounded (no intermediate rounding).
-3. Final Payment = B × (1 + r), rounded to cents.
+2. For each month k = 1, 2, …, n, compute the **amount due** D = B × (1 + r): the remaining balance plus the interest accrued in that month (full precision, no intermediate rounding).
+   - If k = n, **or** D ≤ M_rounded (the regular payment would bring the balance to €0.00 or below), month k is the **last active month**. The Final Payment is D, rounded to cents, and the loan ends. Any remaining months are skipped (**early termination**).
+   - Otherwise, the regular payment is made: B = D − M_rounded, and the next month follows.
+3. If the Final Payment from step 2 rounds to €0.00 (D < €0.005), month k is not a payment month. The payment of month k − 1 (M_rounded) is the Final Payment, and the loan ends at month k − 1.
 
-For r = 0 this reduces to: Final Payment = P − M_rounded × (n − 1).
+The number of payments actually made is **k ≤ n**.
+
+**Why a loan can end early.** M_rounded is used for every month, so its rounding difference compounds with interest. When M is rounded **up** at a high rate and a long term, the accumulated overpayment repays the loan before month n. Example: P = 1 000.29, 20 %, 30 years → M_rounded = 16.72, and the loan ends at month 354 with a Final Payment of 8.08. Without early termination, the month-360 payment would be negative (−97.42).
+
+**Properties of the result:**
+- The Final Payment is always **> €0.00**.
+- If the loan ends early (k < n), the Final Payment is **≤ M_rounded**.
+- If the loan runs the full term (k = n), the Final Payment may be higher or lower than M_rounded.
+- For r = 0 the loan always runs the full term, and the rule reduces to: Final Payment = P − M_rounded × (n − 1).
 
 ### 4.5 Totals
 
-- **Total Paid = M_rounded × (n − 1) + Final Payment**
+- **Total Paid = M_rounded × (k − 1) + Final Payment**, where k is the number of payments made (section 4.4). This equals the sum of all payments.
 - **Total Interest = Total Paid − P**
 
 ---
