@@ -528,3 +528,37 @@ Min/max recorded as inclusive.
   - The range texts mirror `V1_RULES`, with a comment pointing to it (04 #17, accepted for V1).
 - **Verification:** `npm test` → 6 files, **95 passed (95)**; `npm run typecheck` → 0 errors.
 - Updated `docs/handoff.md`.
+
+## Prompt 15 — Part B, Step 7: calculator facade (M7), test-first
+
+### Prompt
+
+> Read `docs/v1/05-plan.md`. We are executing Part B (Build V1), Step 7.
+>
+> Follow the Test-First (TDD) workflow for Module 7 (Calculator Facade):
+> 1. Write unit tests in `tests/domain/calculator.test.ts` for the 6 test scenarios specified in `docs/v1/05-plan.md` (Test IDs 80 through 83, and 109 through 110).
+>    - Use `vi.mock` for the calculation module in tests 82-83 to verify that `calculateAnnuity` is never called when input validation fails.
+> 2. Verify that running `npm test` fails as expected (Red).
+> 3. Implement `src/domain/calculator.ts` matching M7 in `docs/v1/02-architecture.md`:
+>    - Connect input validation, calculation engine, formatting, and presentation modules into a single clean facade entry point (`calculateMortgage`).
+>    - Ensure that if validation returns errors, calculation is bypassed completely and presentation errors are returned immediately.
+> 4. Run `npm test` and `npm run typecheck` to verify that all 101 tests pass cleanly with zero type errors (Green).
+>
+> After verifying Step 7 completion:
+> 1. Log this step into `docs/v1/prompts.md` as Prompt 15.
+> 2. Update `docs/handoff.md` to show Step 7 complete and Step 8 (CLI Terminal Adapter) ready.
+> 3. Make a git commit using the exact commit message from `05-plan.md` for Step 7: "feat: add calculator facade (M7)".
+
+### Output
+
+- **Deviations from the prompt, following `05-plan.md` §3 and `02-architecture.md` M7:**
+  - **Files:** `src/app/calculator.ts` and `tests/app/calculator.test.ts`, not `domain/`. M7 lives in the `app` layer; the architecture guard (tests 93–95) only lets `domain/` import `domain/types`, so `src/domain/calculator.ts` would fail it.
+  - **Names:** the facade is `runCalculator(raw)` (02 M7). `calculateMortgage` is the existing M4 function, and it is the one mocked; there is no `calculateAnnuity`.
+  - **Test IDs:** the plan's Step 7 is **80–84 and 109** (6 tests, 101 in total). Test 110 is an e2e test scheduled for Step 9; test 84 (all inputs missing) is an M7 test.
+  - **Commit message:** the plan's Step 7 message ("feat: add calculator use case (M7)") was used.
+- **Red:** with a throwing stub, **6 failed, 95 passed**.
+- **Green:** `runCalculator` runs `validateLoanInput` → `toErrorView` if invalid (no calculation) → otherwise `calculateMortgage` → `toResultView`. Formatting is reached through M6.
+  - Tests 80, 82–84 assert the call count of `calculateMortgage` through a partial `vi.mock` that wraps the real function (05-plan §6.2).
+  - Mutation check: calling `calculateMortgage` before the validity check makes tests 80 and 82–84 fail.
+- **Verification:** `npm test` → 7 files, **101 passed (101)**; `npm run typecheck` → 0 errors.
+- Updated `docs/handoff.md`.

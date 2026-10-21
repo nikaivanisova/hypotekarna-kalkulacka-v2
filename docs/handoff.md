@@ -4,7 +4,7 @@ Notes for whoever picks up this project next: current state, open questions, and
 
 ## Current State
 
-**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–6 of `docs/v1/05-plan.md` are complete (95/95 tests green). Step 7 (Calculator facade, M7) is next.
+**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–7 of `docs/v1/05-plan.md` are complete (101/101 tests green). Step 8 (CLI terminal adapter, M8) is next.
 
 - Base project structure created (docs, README, CLAUDE.md, git repo).
 - Layer 1 (functional definition) approved: `docs/v1/01-functional.md`.
@@ -68,6 +68,13 @@ Notes for whoever picks up this project next: current state, open questions, and
   - **Step 7 notes:**
     - `runCalculator(raw)` → `{ kind: 'result', view }` or `{ kind: 'invalid', view }`. It must not call `calculateMortgage` for invalid input.
     - Tests 82–83 need a partial `vi.mock` of `src/domain/calculation`, because `vi.spyOn` cannot replace ES module exports (05-plan §6.2).
+- **Part B, Step 7 complete (2026-10-21):** M7 `src/app/calculator.ts` + `tests/app/calculator.test.ts` (tests 80–84, 109), built test-first (red: 6 failed → green).
+  - `npm test` → 101 passed; `npm run typecheck` → 0 errors.
+  - The exports are `CalculatorOutcome` and `runCalculator(raw)`: `validateLoanInput` → `toErrorView` if invalid (no calculation) → otherwise `calculateMortgage` → `toResultView`.
+  - Tests 80 and 82–84 assert the call count of `calculateMortgage` through a partial `vi.mock` that wraps the real function. Mutation check: calling `calculateMortgage` before the validity check makes tests 80 and 82–84 fail.
+  - **Step 8 notes:**
+    - M8 imports only `app/calculator` and `domain/types` (architecture guard); it must not import M2–M6 directly.
+    - `createNodeTerminalIo(input?, output?)` is the line queue from 02 M8 / ADR-10. Tests 111–112 use in-memory `PassThrough` streams; tests 85–88 use a scripted fake `TerminalIo`.
 
 ## Open Questions
 - Author decisions on findings #7–#24 in `docs/v1/04-review.md` (all Minor). Still undecided: `-0` (#9), space grouping / NBSP (#12), term `"10,0"` (#13), duplicated rounding and limits (#16, #17), the `ui → domain` rule (#18).
@@ -85,4 +92,4 @@ Part B, following `docs/v1/05-plan.md` section 3. Each step is test-first and en
 8. CLI adapter (M8): tests 85–88, 111–112 (107 total).
 9. Main + e2e (M9): tests 89–92, 110 (112 total).
 
-**Steps 1–6: done. Current step: 7 (Calculator facade, M7): tests 80–84, 109 → 101 tests in total.**
+**Steps 1–7: done. Current step: 8 (CLI terminal adapter, M8): tests 85–88, 111–112 → 107 tests in total.**
