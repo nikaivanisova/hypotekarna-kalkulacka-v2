@@ -4,7 +4,7 @@ Notes for whoever picks up this project next: current state, open questions, and
 
 ## Current State
 
-**Part A (Planning): complete.** **Part B (Build V1): in progress.** Step 1 of `docs/v1/05-plan.md` is complete (3/3 tests green). Step 2 (Parsing, M2) is next.
+**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–2 of `docs/v1/05-plan.md` are complete (24/24 tests green). Step 3 (Validation, M3) is next.
 
 - Base project structure created (docs, README, CLAUDE.md, git repo).
 - Layer 1 (functional definition) approved: `docs/v1/01-functional.md`.
@@ -36,6 +36,12 @@ Notes for whoever picks up this project next: current state, open questions, and
     - Tests live in `tests/<layer>/<module>.test.ts`, and every `it()` name is copied verbatim from 03.
   - The architecture guard's allow-list: domain → domain/types; input/output → domain/types (plus validation → parsing, presentation → formatting); app → domain, input, output; ui → app, domain/types; main → ui. Node built-ins and `process`/`console` are only allowed in ui/ and main; decimal.js is allowed in domain/input/output/app.
   - npm 11 warns that esbuild's install script was not approved (`npm install-scripts`). Vitest and tsx work without it; no action is needed.
+- **Part B, Step 2 complete (2026-10-21):** M2 `src/input/parsing.ts` + `tests/input/parsing.test.ts` (tests 1–16, 96–100), built test-first (red: 21 failed → green).
+  - `npm test` → 24 passed; `npm run typecheck` → 0 errors.
+  - The exports are `ParseResult`, `NUMBER_PATTERN` and `parseNumber`. `NUMBER_PATTERN` runs before `new Decimal()`.
+  - **Literal-spec choices for open findings (relevant to Step 3):**
+    - Only U+0020 spaces are removed inside a number (#12): a tab or NBSP inside a number → `not_a_number`. At the edges, JS `trim()` removes all whitespace, including NBSP.
+    - `"-0"` and `"-0,00"` parse to a negative-zero Decimal (#9). `isNegative()` is `true` for it, so M3 will report `negative` unless the author decides otherwise.
 
 ## Open Questions
 - Author decisions on findings #7–#24 in `docs/v1/04-review.md` (all Minor). Still undecided: `-0` (#9), space grouping / NBSP (#12), term `"10,0"` (#13), duplicated rounding and limits (#16, #17), the `ui → domain` rule (#18).
@@ -53,4 +59,4 @@ Part B, following `docs/v1/05-plan.md` section 3. Each step is test-first and en
 8. CLI adapter (M8): tests 85–88, 111–112 (107 total).
 9. Main + e2e (M9): tests 89–92, 110 (112 total).
 
-**Step 1: done. Current step: 2 (Parsing, M2): tests 1–16, 96–100 → 24 tests in total.**
+**Steps 1–2: done. Current step: 3 (Validation, M3): tests 17–40, 101 → 49 tests in total.**

@@ -361,3 +361,36 @@ Min/max recorded as inclusive.
 - **Verification:** `npm test` → 1 file, **3 passed (3)**; `npm run typecheck` → 0 errors.
 - Commit message: the exact Step 1 message from `05-plan.md` §3 was used ("feat: scaffold project and add domain types with architecture guard (M1)"), because the message quoted in the prompt differs from the plan.
 - Updated `docs/handoff.md`.
+
+## Prompt 10 — Part B, Step 2: parsing (M2), test-first
+
+### Prompt
+
+> Read `docs/v1/05-plan.md`. We are executing Part B (Build V1), Step 2.
+>
+> Follow the Test-First (TDD) workflow for Module 2 (Parsing):
+> 1. Write unit tests in `tests/parsing.test.ts` for test IDs 1 through 21 (from `docs/v1/03-test-scenarios.md`).
+> 2. Verify that running `npm test` fails as expected (Red).
+> 3. Implement `src/parsing/parse-input.ts` matching M2 in `02-architecture.md` (and strict number validation rules from review finding #3). Remember to use `.js` relative imports (e.g., `import { ... } from '../domain/types.js'`).
+> 4. Run `npm test` and `npm run typecheck` to verify that all 24 tests (3 existing architecture tests + 21 parsing tests) pass cleanly with zero type errors (Green).
+>
+> After verifying Step 2 completion:
+> 1. Log this step into `docs/v1/prompts.md` as Prompt 10.
+> 2. Update `docs/handoff.md` to show Step 2 complete and Step 3 (Validation) ready.
+> 3. Make a git commit using the exact message specified in `05-plan.md` for Step 2: "feat: implement input parsing with strict numeric cleaning (M2)".
+
+### Output
+
+- **Deviations from the prompt, following `05-plan.md` §3:**
+  - **Test IDs:** the 21 parsing tests are IDs **1–16 and 96–100**. IDs 17–21 are validation tests (Step 3).
+  - **Paths:** `src/input/parsing.ts` and `tests/input/parsing.test.ts`. `src/parsing/` is not a layer in 02 §2, and the architecture guard (test 93) rejects modules outside the known layers.
+  - **Commit message:** the plan's Step 2 message ("feat: add strict number parsing (M2)") was used; the prompt's quoted message differs from the plan.
+- **Red:** with a missing module, the suite failed to load. With a throwing stub, the result was **21 failed, 3 passed**.
+- **Green:** `src/input/parsing.ts` exports `ParseResult`, `NUMBER_PATTERN` (`/^-?[0-9]+(?:[.,]([0-9]+))?$/`) and `parseNumber`, in the order from 02 M2:
+  1. `undefined`, or empty after trimming → `empty`;
+  2. trim, then remove inner spaces;
+  3. `NUMBER_PATTERN` gatekeeper → `not_a_number`;
+  4. `,` → `.`, then `new Decimal()`.
+  `writtenDecimals` counts the fraction digits as typed.
+- **Verification:** `npm test` → 2 files, **24 passed (24)**; `npm run typecheck` → 0 errors.
+- Updated `docs/handoff.md`.
