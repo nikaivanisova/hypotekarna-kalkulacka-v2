@@ -283,3 +283,48 @@ Min/max recorded as inclusive.
 - Verified a prototype of the line-queue reader on Node 24.20.0 (piped stdin, CRLF, EOF).
 - Updated `docs/handoff.md`.
 - Committed as "docs: update specs with review resolutions (01, 02, 03, 04)".
+
+## Prompt 8 — Final execution plan (05-plan.md)
+
+### Prompt
+
+> Read `docs/v1/01-functional.md` through `docs/v1/04-review.md`.
+> Write the final execution plan to `docs/v1/05-plan.md`.
+>
+> Structure the document with the following required sections:
+> 1. V1 Goals: 2-4 measurable boolean goals (e.g., 100% test scenario pass rate across all 112 tests, clean execution on Node 24 LTS, zero external runtime UI dependencies).
+> 2. Final Scope & Acceptance Criteria:
+>    - Explicit list of exact test names (tests 1 through 112) from 03-test-scenarios.md that MUST pass.
+>    - Technical acceptance criteria (e.g., `npm test` runs with 0 failures, CLI runs interactively via `npm start`).
+> 3. Implementation Order:
+>    - Modules in strict dependency order:
+>      1. Types (`types.ts`)
+>      2. Parsing (`parsing.ts`)
+>      3. Validation (`validation.ts`)
+>      4. Calculation (`calculation.ts`)
+>      5. Formatting (`formatting.ts`)
+>      6. Presentation (`presentation.ts`)
+>      7. Calculator Facade (`calculator.ts`)
+>      8. CLI Terminal Adapter (`cli.ts`)
+>      9. Main Entrypoint (`main.ts`)
+>    - For each module, list: module to build, corresponding test IDs from 03-test-scenarios.md, and explicit single git commit message.
+> 4. Definition of Done per Step: Unit tests green, all previous tests remain green, single git commit, update `docs/handoff.md`.
+> 5. Execution Tooling: Vitest test runner, event-driven line queue stream strategy for CLI stdin.
+> 6. Risks & Contingencies: Summary of addressed review findings (early payoff rule, sub-half-cent rounding tail rule, non-blocking stream reader for CLI).
+>
+> After saving `docs/v1/05-plan.md`:
+> 1. Log this prompt into `docs/v1/prompts.md` as Prompt 8.
+> 2. Update `docs/handoff.md` to show Part A (Planning) complete and Part B (Build V1) ready to commence.
+> 3. Make a git commit with the message "docs: create final execution plan (05-plan.md)".
+
+### Output
+
+- Created `docs/v1/05-plan.md`:
+  - **Goals G1–G4:** 112/112 tests pass with 0 skipped; Node 24 + clean type-check + interactive `npm start`; `decimal.js` is the only runtime dependency; the architecture rules hold.
+  - **Scope & acceptance:** all 112 exact test names (generated from 03, each mapped to its build step) and technical criteria AC-1–AC-7. Open Minor findings #7–#24 follow the literal spec text and do not block the build.
+  - **Implementation order:** 9 steps (M1 with scaffold and architecture guard → M2 → M3 → M4 → M5 → M6 → M7 → M8 → M9), with test IDs, cumulative counts (3/24/49/77/84/95/101/107/112) and one commit message per step.
+  - **Definition of Done:** step tests green, all earlier tests green, type-check clean, handoff and prompt log updated, exactly one commit; expected values in 03 are never changed during the build.
+  - **Tooling:** Vitest, tsx, tsc, decimal.js, and the event-driven line-queue stdin reader.
+  - **Risks:** the addressed findings (early payoff, sub-half-cent tail rule, line-queue reader, strict grammar, property sweep, trade-offs) plus implementation risks (ES-module spying for tests 82–83, sweep runtime, `npx` spawn on Windows, CRLF, global Decimal rounding) and the unconfirmed points.
+- Updated `docs/handoff.md` (Part A complete, Part B ready).
+- Committed as "docs: create final execution plan (05-plan.md)".
