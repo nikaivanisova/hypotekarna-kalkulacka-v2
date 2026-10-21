@@ -14,12 +14,18 @@ Notes for whoever picks up this project next: current state, open questions, and
   - Expected values verified with an independent Python `decimal` script (in the doc's appendix) and a separate Node.js PMT check.
   - Defines the exact UI texts (prompts, result labels, error messages) that the tests assert.
   - Note: the reference example P=100000, 3.5 %, 30y has Final 452.02 / Total Paid 161657.38 (not 449.04 / 161654.40); see the note in 03.
+- Layer 4 (independent review) complete: `docs/v1/04-review.md`.
+  - 24 findings: 1 Blocker, 5 Major, 18 Minor. `Author Decision` / `Reason` columns await the author.
+  - **Blocker #1:** the §4.4 final-payment rule gives negative final payments for valid inputs (e.g. P = 1 000.29, 20 %, 30 y → Final −97.42).
+  - Major: the M8 readline adapter breaks with piped stdin/EOF (e2e 89–92); the number grammar is undefined (decimal.js accepts `0x…`, `Infinity`, `NaN`); there is no domain-wide invariant test; extra payments and variable rates touch 5+ modules.
+  - All financial reference values in 03 were re-verified with exact rational arithmetic: 0 errors.
 - No source code exists yet.
 
 ## Open Questions
-- None.
+- Author decisions on all findings in `docs/v1/04-review.md`, especially #1 (how to handle a negative or early-payoff final payment), which changes FR-1/FR-2, M4 and tests 43–60.
 
 ## Next Steps
+- Fill in `Author Decision` / `Reason` in `04-review.md`, then update 01/02/03 for the accepted findings (resolve Blocker #1 before implementing M4).
 - Scaffold the project: `package.json` (scripts `test`, `start`, `typecheck`), `tsconfig.json` (strict), install `decimal.js`, `vitest`, `tsx`, `typescript`.
 - Implement test-first, module by module, using the test names from `03-test-scenarios.md` verbatim: M4 calculation → M2 parsing → M3 validation → M5 formatting → M6 presentation → M7 calculator → M8 CLI → M9 main → e2e.
 - Add `tests/architecture.test.ts` (tests 93–95) to enforce the dependency rules.

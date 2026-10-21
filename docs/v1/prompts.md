@@ -199,3 +199,43 @@ Min/max recorded as inclusive.
 - Documented that the calculation module receives only validated input, so its invalid-input coverage is the calculator tests asserting `calculateMortgage` is never called for invalid input.
 - Updated `docs/handoff.md`.
 - Committed as "docs: create test scenarios (03-test-scenarios.md)".
+
+## Prompt 6 — Layer 4: independent review (04-review.md)
+
+### Prompt
+
+> You are an independent code reviewer. You did not write this plan.
+> Read ONLY `docs/v1/01-functional.md`, `docs/v1/02-architecture.md`, and `docs/v1/03-test-scenarios.md`.
+> Do not trust claims; verify them critically against the files.
+>
+> Perform the following independent audit:
+> 1. Coverage: Does every requirement in 01-functional.md have a module in 02-architecture.md and a test in 03-test-scenarios.md? Does every test check a real requirement?
+> 2. Ambiguities: Identify any requirements or rules that could be implemented in two different ways with different results.
+> 3. Missing Scenarios: List unhandled edge cases or invalid input formats not covered in 03-test-scenarios.md.
+> 4. Architecture Stress Test: For 3 out-of-scope features (e.g., extra payments, variable rates, repayment schedule), detail exactly which modules would need to change. Flag an architectural issue if more than one existing module must be modified.
+> 5. Reference Value Audit: Write and run a standalone verification script to recompute all financial test values in 03-test-scenarios.md. Do not estimate.
+>
+> Format all findings into a Markdown table in `docs/v1/04-review.md` with columns:
+> - `#` (Finding number)
+> - `Severity` (Blocker / Major / Minor)
+> - `Affects` (Requirement, Module, or Test)
+> - `Finding` (Detailed description of the issue)
+> - `Author Decision` (Leave blank)
+> - `Reason` (Leave blank)
+>
+> Do not modify any files other than `docs/v1/04-review.md`.
+>
+> After saving `docs/v1/04-review.md`:
+> 1. Log this prompt into `docs/v1/prompts.md` as Prompt 6.
+> 2. Update `docs/handoff.md` to reflect Layer 4 audit completion.
+> 3. Make a git commit with the message "docs: create independent review findings (04-review.md)".
+
+### Output
+
+- Created `docs/v1/04-review.md` with **24 findings** (1 Blocker, 5 Major, 18 Minor) in one table. The `Author Decision` and `Reason` columns are left blank.
+- **Blocker (#1):** the §4.4 final-payment rule gives a **negative Final Payment** for valid inputs. Example: P = 1 000.29, 20 %, 30 y → Regular 16.72, Final −97.42. Thousands of such inputs exist at high rates and 25–30-year terms, and even at 8 %/30 y. The architecture invariant `finalPayment > 0` is false, and test 60 does not detect it.
+- **Major:** the M8 `readline/promises` adapter loses piped stdin lines and hangs on EOF (verified on Node 24.20.0, exit 13), so e2e tests 89–92 would fail; the number grammar is undefined and decimal.js accepts `0x3E8`, `Infinity` and `NaN`; there is no domain-wide invariant sweep; extra payments and variable rates each require changes to 5+ existing modules (architectural issues).
+- **Minor:** ambiguities ("exactly €0.00" vs a rounded final payment, `-0`, edge separators, `+` and Unicode signs, space grouping and NBSP, term `"10,0"`, the meaning of "full precision", half-up for negatives); duplicated rounding and limits across modules; contradictory `ui → domain` rules; tests asserting texts defined only in 03; inflated traceability; the non-reproducible REF-PMT; the schedule stress test; and missing parser/validation/CLI scenarios.
+- **Reference value audit:** recomputed with exact rational arithmetic (Python `fractions`). **All 18 calculation scenarios, 11 rounding checks and the M claims in 03 are correct.** 40-digit Decimal matched the exact results on 300 random inputs. The scripts and their outputs are in the appendix of 04.
+- Updated `docs/handoff.md`.
+- Committed as "docs: create independent review findings (04-review.md)".
