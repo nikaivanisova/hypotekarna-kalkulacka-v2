@@ -4,7 +4,16 @@ Notes for whoever picks up this project next: current state, open questions, and
 
 ## Current State
 
-**Part A (Planning): complete.** **Part B (Build V1): 100 % complete.** All 9 steps of `docs/v1/05-plan.md` are done (112/112 tests green, 0 type errors). Next: Experiment E1 and the retrospective (`docs/v1/06-retro.md`).
+**V1 project: 100 % complete.**
+
+| Part | Status |
+|---|---|
+| Part A (Planning: `docs/v1/01`–`05`) | ✅ 100 % complete |
+| Part B (Build V1: Steps 1–9) | ✅ 100 % complete: 112/112 tests, 0 type errors |
+| Experiment (no-plan build, `no-plan/`) | ✅ complete |
+| Retrospective (`docs/v1/06-retro.md`) | ✅ 100 % complete |
+
+Items carried over to V2 are listed under "Open Questions" and "Next Steps" below.
 
 - Base project structure created (docs, README, CLAUDE.md, git repo).
 - Layer 1 (functional definition) approved: `docs/v1/01-functional.md`.
@@ -95,25 +104,20 @@ Notes for whoever picks up this project next: current state, open questions, and
   - Windows: in PowerShell, `npm start` is blocked by the execution policy (`npm.ps1`); use `npm.cmd start`.
   - Deviations from the prompt (file path, `process.exit`, commit message): the 05-plan / 02 versions were used. See Prompt 17 in `docs/v1/prompts.md`.
 
-## Open Questions
+- **Experiment (complete):** a mortgage CLI built from the single prompt "Build a simple mortgage calculator CLI application in Node.js/TypeScript." without the plan (Prompts 18–19). It is in `no-plan/` (7 tests green, 0 type errors) and is **not committed**; the `experiment/no-plan` branch has no commits of its own.
+- **Retrospective complete (2026-10-21):** `docs/v1/06-retro.md` (Prompt 20).
+  - Both builds were run on the same inputs. The no-plan totals are internally inconsistent and overstate Total Paid by up to €107.17 (P = 1 000.29, 20 %, 30 y).
+  - The review's two silent bugs (#1 negative final payment, #3 hex accepted) would not have been found by the original 95 tests.
+  - All 9 build prompts disagreed with `05-plan.md`; the plan was followed each time.
+  - Section 6 lists the V2 rules, process changes and tooling.
+
+## Open Questions (carried over to V2)
 - Author decisions on findings #7–#24 in `docs/v1/04-review.md` (all Minor). Still undecided: `-0` (#9), space grouping / NBSP (#12), term `"10,0"` (#13), duplicated rounding and limits (#16, #17), the `ui → domain` rule (#18).
+- Author confirmation of the sub-half-cent tail rule (01 §4.4 step 3; 05 §6.3). It is guarded by test 106 only.
 - Whether to display the number of payments when a loan ends early (V1 outputs do not show it).
 
 ## Next Steps
-Part B, following `docs/v1/05-plan.md` section 3. Each step is test-first and ends with exactly one commit and a handoff update:
-1. Scaffold + Types (M1) + architecture guard: tests 93–95 (3 total).
-2. Parsing (M2): tests 1–16, 96–100 (24 total).
-3. Validation (M3): tests 17–40, 101 (49 total).
-4. Calculation (M4): tests 41–61, 102–108 (77 total).
-5. Formatting (M5): tests 62–68 (84 total).
-6. Presentation (M6): tests 69–79 (95 total).
-7. Calculator facade (M7): tests 80–84, 109 (101 total).
-8. CLI adapter (M8): tests 85–88, 111–112 (107 total).
-9. Main + e2e (M9): tests 89–92, 110 (112 total).
-
-**Steps 1–9: done. Part B (Build V1) is 100 % complete: 112/112 tests, 0 type errors.**
-
-Next:
+V1 is complete. Before or at the start of V2:
 1. Confirm AC-3 by hand: run `npm start` (`npm.cmd start` in PowerShell), type `100 000`, `3,5` and `30`, then check the 4 result lines and exit code 0.
-2. Experiment E1.
-3. Retrospective: `docs/v1/06-retro.md`.
+2. Decide whether to keep the `no-plan/` experiment (commit it on `experiment/no-plan`) or delete it.
+3. Apply the V2 recommendations from `docs/v1/06-retro.md` section 6: add the rules to `CLAUDE.md`, decide the open questions above in V2's Layer 1, and start V2 planning in `docs/v2/`.

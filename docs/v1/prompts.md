@@ -632,3 +632,67 @@ Min/max recorded as inclusive.
   - AC-3: `npm start` in an interactive terminal shows `Loan amount (EUR): ` and waits for input, with no default. The agent cannot type into a TTY, so the rest of the interactive run is left for the author to check.
   - Windows note: in PowerShell, `npm start` is blocked by the execution policy (`npm.ps1`); `npm.cmd start` works.
 - Updated `docs/handoff.md`.
+
+## Prompt 18 — Experiment: no-plan build (branch `experiment/no-plan`)
+
+### Prompt
+
+> "Build a simple mortgage calculator CLI application in Node.js/TypeScript."
+
+(Preceded by `git checkout -b experiment/no-plan`, which created the branch from `master` at f89a394.)
+
+### Output
+
+- The repository contains no definition of this experiment, so the app was built from the prompt alone, without reading `docs/v1/01–05`. It lives in a separate folder, `no-plan/`, with its own `package.json`, so the planned V1 in `src/` is untouched.
+- Files: `no-plan/src/mortgage.ts` (calculation, input parsing/validation, money formatting), `no-plan/src/cli.ts` (interactive prompts over a readline async iterator, re-asks invalid input, exit 1 when input ends early), `no-plan/test/mortgage.test.ts` (7 tests), `no-plan/README.md`.
+- Design choices made without a plan (compare with V1):
+  - Totals = unrounded payment × n, rounded at the end (100 000 / 3.5 % / 30 y → Total Paid 161 656.09). V1 uses the rounded payment plus a final payment (161 657.38).
+  - English number format: `.` decimal point, `,` thousands separator in the output, and no currency symbol. V1 uses the Slovak format (`,` decimal, `€`).
+  - Limits: rate 0–100 %, term 1–50 years (V1: 0–20 %, its own limits).
+  - No final-payment or early-termination logic, no architecture guard, no e2e tests.
+- Verification: `npm test` (in `no-plan/`) → 7 passed; `npm run typecheck` → 0 errors. Piped runs: valid input → exit 0; invalid input is re-asked; early EOF → exit 1.
+- Not committed.
+
+## Prompt 19 — Experiment: no-plan build, prompt repeated (branch `experiment/no-plan`)
+
+### Prompt
+
+> "Build a simple mortgage calculator CLI application in Node.js/TypeScript."
+
+### Output
+
+- Same prompt as Prompt 18. `no-plan/` already contained the app built then, so nothing was rebuilt or changed.
+- Re-verified: `npm test` (in `no-plan/`) → 7 passed; `npm run typecheck` → 0 errors; `printf '100000\n3.5\n30\n' | npx tsx src/cli.ts` → Monthly payment 449.04, 360 payments, Total paid 161,656.09, Total interest 61,656.09, exit 0.
+- Not committed.
+
+## Prompt 20 — Retrospective (06-retro.md)
+
+### Prompt
+
+> Read all files in `docs/v1/`. Generate `docs/v1/06-retro.md` evaluating the entire V1 plan and build process.
+>
+> Structure `docs/v1/06-retro.md` with the following required sections:
+> 1. What the Plan Got Right: Highlight architectural decisions that prevented rework (e.g., isolated calculation module, 40-digit decimal context, line-queue reader).
+> 2. What the Plan Missed: Detailed breakdown of changes required during the build and review (e.g., Blocker #1 early loan payoff, sub-half-cent rounding tail, piped stdin EOF hanging issue).
+> 3. Prompting Impact: Analysis of how structured prompts versus vague prompts affected output quality and precision.
+> 4. Review Value: Critical evaluation of findings from Layer 4 (`04-review.md`) and how independent auditing saved the project from silent bugs.
+> 5. Experiment Results: Quantitative and qualitative comparison of building with a full plan vs. the `experiment/no-plan` branch.
+> 6. Methodology Recommendations for V2: Explicit rules, tooling, or structural updates to apply when starting V2.
+>
+> After saving `docs/v1/06-retro.md`:
+> 1. Log this prompt as Prompt 18 in `docs/v1/prompts.md`.
+> 2. Update `docs/handoff.md` to show the entire project (Part A, Part B, Retrospective) as 100% complete.
+> 3. Make a final git commit with the message: "docs: complete V1 retrospective and final prompt log (06-retro.md)".
+
+### Output
+
+- **Deviation from the prompt:** logged as **Prompt 20**, not 18. Prompts 18 and 19 are already the no-plan experiment, and the log is chronological (CLAUDE.md).
+- Created `docs/v1/06-retro.md` with the six required sections, plus a summary table and the closing state:
+  - **Got right:** the isolated M4 (the Blocker #1 fix touched one file), the private 40-digit `ROUND_HALF_UP` context (0 mismatches against exact rationals), the line-queue reader (Steps 8–9 green with no hang debugging), the grammar gate, the Step 1 architecture guard, the per-step test IDs, and the risk list (4 of 6 risks happened, each with a ready contingency). 0 expected values changed during the build.
+  - **Missed:** Blocker #1 (negative final payment), the sub-half-cent tail rule (added during the fix, not reviewed), readline EOF/exit 13, the undefined grammar, no sweep, extension friction; plus the build-time discoveries (TypeScript 7 default, decimal.js default import, global-vs-clone `Decimal`s, test 106 as the only zero-tail guard, test 92 vacuous in red, `npm.ps1` policy, AC-3 not checkable by the agent).
+  - **Prompting:** all 9 build prompts disagreed with `05-plan.md` (9 commit messages, 4 test-ID sets, 4 paths, 4 technical instructions); the plan as the source of truth absorbed them.
+  - **Review:** 2 of the 6 decided findings (#1, #3) were silent bugs that the original 95 tests could not detect; limits: no code review, 18 findings undecided.
+  - **Experiment:** both builds were run on the same inputs. The no-plan build's totals are internally inconsistent and overstate the total paid by €107.17 for P = 1 000.29, 20 %, 30 y; it rejects the decimal comma and has guessed limits. Contamination caveat: it probably copied V1 choices.
+  - **V2:** 6 rules (plan is the source of truth, sweep tests, mutation testing, re-review fixes, decide all findings, check prompt examples), process changes (Layer 4b code review, clean-context experiment, effort metrics, `domain/schedule` first) and tooling (pinned versions, checked-in reference script, StrykerJS, CI, `node-pty`).
+- Updated `docs/handoff.md` (Part A, Part B and the retrospective complete).
+- Committed as "docs: complete V1 retrospective and final prompt log (06-retro.md)". `no-plan/` was left uncommitted, as in Prompts 18–19.
