@@ -161,3 +161,41 @@ Min/max recorded as inclusive.
 - **ADRs (8):** CLI platform; TypeScript/Node vs Python; decimal.js vs float/integer cents/big.js; custom formatter vs `Intl`; error codes vs messages in validation; full-precision balance run vs closed-form; architecture test vs dependency-cruiser; pure core with I/O behind a port.
 - Updated `docs/handoff.md`.
 - Committed as "docs: create architecture definition (02-architecture.md)".
+
+## Prompt 5 — Layer 3: test scenarios (03-test-scenarios.md)
+
+### Prompt
+
+> Read `docs/v1/01-functional.md` and `docs/v1/02-architecture.md`.
+> Propose test scenarios for V1 in a single markdown table and save it to `docs/v1/03-test-scenarios.md`.
+>
+> The table must include the following columns:
+> - Test Name (unique snake_case or camelCase name to be used directly as the test name in code, e.g., test_annuity_standard_rate)
+> - Level (unit / functional / e2e)
+> - Module & Implemented Requirement (which module and FR ID it checks, e.g., calculation / FR-1)
+> - Input & Expected Output (exact values, money down to the cent, e.g., Input: P=100000, r=3.5%, term=30y -> Regular: 449.04 EUR, Final: 449.04 EUR, Total Paid: 161654.40 EUR, Interest: 61654.40 EUR)
+> - Reference Source (independently verified source, e.g., manual calculation, spreadsheet formula, or external calculator)
+> - Type (happy path / edge case / invalid input)
+>
+> Minimum Coverage Requirements:
+> 1. Every functional requirement (FR-1, FR-2, FR-3) must have at least one test.
+> 2. Every module with calculation logic must have edge cases (e.g., 0% interest rate, 1 year term, 30 year term, rounding boundary conditions like .005) and invalid inputs (e.g., negative loan, text string, multiple decimal points).
+> 3. Include at least one full end-to-end scenario (E2E) testing the CLI application from user input prompt to displayed output.
+>
+> After saving `docs/v1/03-test-scenarios.md`:
+> 1. Log this prompt and a summary of the generated test scenarios into `docs/v1/prompts.md` as Prompt 5.
+> 2. Update `docs/handoff.md` to show Layer 3 completion.
+> 3. Make a git commit with the message "docs: create test scenarios (03-test-scenarios.md)".
+
+### Output
+
+- Created `docs/v1/03-test-scenarios.md` with **95 scenarios** in one table (columns: #, Test Name, Level, Module & Implemented Requirement, Input & Expected Output, Reference Source, Type).
+  - By module: parsing 16, validation 24, calculation 21 (incl. `roundToCents`), formatting 7, presentation 11, calculator 5, CLI 4, e2e 4, architecture 3.
+  - By level: 82 unit, 9 functional (calculator + CLI with fake `TerminalIo`), 4 e2e (spawned `npx tsx src/main.ts` with piped stdin).
+  - Coverage: FR-1, FR-2 and FR-3 each covered by many tests; edge cases for 0 % rate, 1-year and 30-year terms, min/max boundaries (inclusive and just outside), exact half-cent (`P=1000.14, 0 %, 1y → 83.345 → 83.35`), just above/below half-cent with interest, final payment equal / ±€0.01 / lower than regular; invalid inputs for negative values, text, multiple separators, too many decimals, fractional term, missing fields.
+- **Reference values** were computed with an independent Python `decimal` script (60 digits, ROUND_HALF_UP, iterative balance run cross-checked against the closed-form remaining balance; script in the doc's appendix) and re-checked with a separate float PMT implementation in Node.js. All values agreed.
+- **Correction to the prompt's example:** P=100000, 3.5 %, 30y gives Final **452.02** (not 449.04), Total Paid **161657.38**, Interest **61657.38**, because the regular payment is rounded down and the final payment absorbs the €2.98 shortfall (01-functional.md §4.4).
+- Added an "Expected UI texts" section that fixes the exact CLI prompts, result labels and English error messages per error code, since 01/02 did not define them.
+- Documented that the calculation module receives only validated input, so its invalid-input coverage is the calculator tests asserting `calculateMortgage` is never called for invalid input.
+- Updated `docs/handoff.md`.
+- Committed as "docs: create test scenarios (03-test-scenarios.md)".
