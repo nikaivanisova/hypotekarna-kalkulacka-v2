@@ -4,7 +4,7 @@ Notes for whoever picks up this project next: current state, open questions, and
 
 ## Current State
 
-**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–4 of `docs/v1/05-plan.md` are complete (77/77 tests green). Step 5 (Formatting, M5) is next.
+**Part A (Planning): complete.** **Part B (Build V1): in progress.** Steps 1–5 of `docs/v1/05-plan.md` are complete (84/84 tests green). Step 6 (Presentation, M6) is next.
 
 - Base project structure created (docs, README, CLAUDE.md, git repo).
 - Layer 1 (functional definition) approved: `docs/v1/01-functional.md`.
@@ -54,6 +54,13 @@ Notes for whoever picks up this project next: current state, open questions, and
   - **Step 5 notes:**
     - `formatMoney` receives cents-rounded `Decimal`s, but must still round half up with an **explicit** mode (`toFixed(2, Decimal.ROUND_HALF_UP)`), never the global default (test 67, 04 #16).
     - It must use ASCII spaces only (test 68).
+- **Part B, Step 5 complete (2026-10-21):** M5 `src/output/formatting.ts` + `tests/output/formatting.test.ts` (tests 62–68), built test-first (red: 7 failed → green).
+  - `npm test` → 84 passed; `npm run typecheck` → 0 errors.
+  - `formatMoney(amount)` → e.g. `1 234,57 €`. It uses an explicit `ROUND_HALF_UP`, ASCII spaces and no `Intl`. Test 67 also runs under a global `ROUND_DOWN`, which proves the explicit mode.
+  - **Step 6 notes:**
+    - M6 may import only M1 types and M5 (`./formatting.js`).
+    - Every UI text is the exact string from 03's "Expected UI texts" section.
+    - `shouldShowFinalPayment` compares the already-rounded amounts: |final − regular| ≥ 0.01.
 
 ## Open Questions
 - Author decisions on findings #7–#24 in `docs/v1/04-review.md` (all Minor). Still undecided: `-0` (#9), space grouping / NBSP (#12), term `"10,0"` (#13), duplicated rounding and limits (#16, #17), the `ui → domain` rule (#18).
@@ -71,4 +78,4 @@ Part B, following `docs/v1/05-plan.md` section 3. Each step is test-first and en
 8. CLI adapter (M8): tests 85–88, 111–112 (107 total).
 9. Main + e2e (M9): tests 89–92, 110 (112 total).
 
-**Steps 1–4: done. Current step: 5 (Formatting, M5): tests 62–68 → 84 tests in total.**
+**Steps 1–5: done. Current step: 6 (Presentation, M6): tests 69–79 → 95 tests in total.**

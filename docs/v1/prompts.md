@@ -461,3 +461,35 @@ Min/max recorded as inclusive.
 - **Mutation check:** removing early termination failed 6 tests (102–106, 108). Removing the zero-tail rule failed test 106. The file was then restored.
 - **Verification:** `npm test` → 4 files, **77 passed (77)**; `npm run typecheck` → 0 errors.
 - Updated `docs/handoff.md`.
+
+## Prompt 13 — Part B, Step 5: formatting (M5), test-first
+
+### Prompt
+
+> Read `docs/v1/05-plan.md`. We are executing Part B (Build V1), Step 5.
+>
+> Follow the Test-First (TDD) workflow for Module 5 (Formatting):
+> 1. Write unit tests in `tests/output/formatting.test.ts` for the 7 test scenarios specified in `docs/v1/05-plan.md` (Test IDs 62 through 68).
+> 2. Verify that running `npm test` fails as expected (Red).
+> 3. Implement `src/output/formatting.ts` matching M5 in `docs/v1/02-architecture.md`:
+>    - Format monetary values into Slovak/EU currency format (e.g., "1 234,57 €").
+>    - Replace standard spaces with non-breaking spaces if required by spec or formatting rules.
+>    - Use explicit `.toFixed(2)` on decimal.js instances with half-up rounding to guarantee proper cent presentation.
+> 4. Run `npm test` and `npm run typecheck` to verify that all 84 tests (77 existing + 7 formatting) pass cleanly with zero type errors (Green).
+>
+> After verifying Step 5 completion:
+> 1. Log this step into `docs/v1/prompts.md` as Prompt 13.
+> 2. Update `docs/handoff.md` to show Step 5 complete and Step 6 (Presentation) ready.
+> 3. Make a git commit using the exact commit message from `05-plan.md` for Step 5: "feat: add currency formatting (M5)".
+
+### Output
+
+- **Spaces:** ASCII spaces were kept. The spec does not require non-breaking spaces; it forbids them (02 ADR-4, test 68: no U+00A0 / U+202F).
+- **Red:** with a throwing stub, **7 failed, 77 passed**.
+- **Green:** `src/output/formatting.ts` exports `formatMoney(amount: Decimal): string`.
+  - It calls `toFixed(2, Decimal.ROUND_HALF_UP)` with an explicit mode, groups thousands with ASCII spaces, uses a `,` decimal separator and a ` €` suffix.
+  - It does not use `Intl`. A minus sign is kept only for non-zero negative amounts.
+- **Test 67 hardening:** it also runs with decimal.js's global rounding set to `ROUND_DOWN` (restored in `finally`), so it proves the explicit rounding mode (04 #16). Mutation check: with an implicit `toFixed(2)`, test 67 fails.
+- **Verification:** `npm test` → 5 files, **84 passed (84)**; `npm run typecheck` → 0 errors.
+- **Commit message:** the plan's Step 5 message ("feat: add money formatting (M5)") was used; the prompt's quoted message differs from the plan.
+- Updated `docs/handoff.md`.
