@@ -68,3 +68,35 @@ Prompts 21–26 (the V2 plan, the Python setup and decision D7) are logged in `d
 - Parity: all 6 800 sweep loans equal `tools/reference.py` (pytest) and the V1 TypeScript code (`tools/v1_parity.py`, new) → 0 mismatches.
 - Found: Windows Application Control blocks `.venv\Scripts\pytest.exe`, so tests run with `uv run python -m pytest` (documented in `backend/README.md`).
 - Updated `backend/README.md` and `docs/handoff.md`. Committed as "feat: port calculation core to Python backend (Phase 2)".
+
+## Prompt 31 — Phase 3: API contract
+
+### Prompt
+
+> Start Phase 3: write api/openapi.yaml from plan §3.
+
+### Output
+
+- Wrote `api/openapi.yaml` (OpenAPI 3.1.0).
+  - `POST /api/v1/calculations` with 5 named request examples and matching 200/422 response examples.
+  - `GET /api/v1/health`.
+  - Problem+json for malformed requests.
+- Contract tests in `backend/tests/contract/test_openapi.py`:
+  - They check that the spec is valid OpenAPI 3.1, that every example is valid against its schema, and that every request example run through `run_calculator` gives exactly its documented response.
+  - They check that money is never a number and that the error vocabulary equals the backend types.
+  - Dev dependencies added and pinned exactly: `pyyaml`, `openapi-spec-validator`, `openapi-schema-validator`, `jsonschema`, `referencing`.
+- Independent review by a separate agent → `docs/v2/03-api-review.md`.
+  - Verdict "approve with changes": 5 Major, 8 Minor, no Blocker.
+  - The reviewer verified the contract's behavioural claims on 200 008 inputs.
+  - With a throwaway FastAPI app outside the repo, the reviewer found that FastAPI's defaults return 422 for malformed requests, echo input values, and crash on `"\ud800"` with a plain-text 500.
+- Applied all 13 findings:
+  - Responses and the error vocabulary are open; the request stays closed.
+  - Phase 4 must override FastAPI's defaults.
+  - Error bodies never contain input values.
+  - Added 413 (1 KiB), 415 and 429; added a CORS allowlist note.
+  - The frontend sets `maxlength="100"`.
+  - `RawInput` whitespace wording made precise; `totalPaid` and `numberOfPayments` worded for Phase 7; `id: null` also covers "not configured".
+  - Client behaviour defined per status; `servers: /`.
+  - Every example is now validated.
+- The plan's Phase 4 row is updated (the overrides, "done when" = conformance to `openapi.yaml`). Added `api/README.md`.
+- Backend: 160 passed. Committed as "feat: API contract with independent review (Phase 3)". Waiting for the author's approval of the contract.

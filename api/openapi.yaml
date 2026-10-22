@@ -1,0 +1,370 @@
+openapi: 3.1.0
+info:
+  title: Mortgage Calculator API
+  version: 1.0.0
+  summary: The contract between the V2 frontend and the Python backend.
+  description: |
+    Source: `docs/v2/00-refactor-plan.md` §3 and `docs/v2/01-functional.md`.
+    Reviewed in `docs/v2/03-api-review.md`.
+
+    ## Rules for every operation
+
+    - **Money is never a JSON number.** Every amount is a decimal string with exactly two
+      decimal places (`"449.04"`). Clients MUST NOT do arithmetic on it; they format it from
+      the string as it is.
+    - **The backend owns parsing, validation, calculation and rounding** (D3, CLAUDE.md).
+      The frontend sends the user's text exactly as typed.
+    - **Two kinds of client error:**
+      - `422`: the request is well-formed, but the user's input is invalid (V1 rules, 01 §3.3).
+        The body lists machine-readable codes; the frontend turns them into messages.
+      - `400`: the request itself is malformed. This includes a body that is not a JSON object, wrong JSON
+        types, unknown properties, invalid strings such as lone surrogates (`"\ud800"`), and values
+        longer than 100 characters. The body is RFC 9457 `application/problem+json`.
+    - **Error bodies never contain request values.** `Problem.detail` may name a property or
+      location, never what was sent. `500` responses carry no `detail`.
+    - **What a client does with each status:** `200` shows the result; `422` shows one message per
+      field; every other status (`400`, `413`, `415`, `429`, `500`) and a network failure show one
+      general error message (01-functional V2 §2.1).
+
+    ## Forward compatibility (Phase 7 adds extra payments)
+
+    - **Responses may gain properties.** Clients MUST ignore response properties they do not know.
+      Response schemas are therefore open (no `additionalProperties: false`).
+    - **Error vocabulary may grow.** Clients MUST show a generic message for a `field` or `code`
+      they do not know. Phase 7 adds error codes, and errors for `extraPayments` items will
+      use `field: extraPayments` plus an `index`.
+    - **Requests are closed** (`additionalProperties: false`), so a typo such as `loanamount` is
+      a `400` instead of a silent `required`. Phase 7 adds an optional `extraPayments` array. Until
+      then, sending it is a `400`. The frontend omits `extraPayments` when it is empty, and frontend
+      and backend are deployed together.
+
+    ## Not expressible in OpenAPI (normative for Phase 4)
+
+    - **CORS:** only the frontend's origin is allowed (an allowlist from configuration, no `*`).
+    - **Body size:** at most 1 KiB, enforced before the body is parsed; larger → `413`.
+    - **Rate limiting:** the backend may answer `429` with `Retry-After`. The policy itself
+      (limits per client) is configuration, set in Phase 4/8.
+    - **FastAPI defaults do not conform**; Phase 4 must override them:
+      - Out of the box FastAPI answers malformed requests with its own `422 {"detail": [...]}`
+        (which echoes inputs) and turns `"\ud800"` into a plain-text 500.
+      - Phase 4 installs exception handlers that produce the `400`/`500` problem responses above.
+      - Phase 4 serves this file as the app's OpenAPI document instead of the generated one.
+servers:
+  - url: /
+    description: Same origin as the client. Locally, the backend runs on http://localhost:8000.
+
+tags:
+  - name: calculations
+  - name: health
+
+paths:
+  /api/v1/calculations:
+    post:
+      tags: [calculations]
+      operationId: createCalculation
+      summary: Calculate a mortgage and save the calculation.
+      description: |
+        Validates the three inputs (FR-3); if all are valid, calculates the payment and totals
+        (FR-1, FR-2) and saves the calculation (FR-4). Nothing is calculated or saved when any
+        input is invalid.
+
+        Saving is best effort (D5): when the calculation is not saved, the result is still
+        returned, with `id: null`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalculationRequest'
+            examples:
+              standard:
+                summary: Typical loan, typed with a space and a decimal comma
+                value: { loanAmount: '100 000', annualRate: '3,5', termYears: '30' }
+              earlyTermination:
+                summary: Loan that ends early; the final payment equals the regular one
+                value: { loanAmount: '1 075,15', annualRate: '20', termYears: '30' }
+              zeroRate:
+                summary: 0 % interest; the final payment absorbs the rounding
+                value: { loanAmount: '1 000', annualRate: '0', termYears: '1' }
+              allMissing:
+                summary: Nothing typed (empty, null and absent all mean "not provided")
+                value: { loanAmount: '', annualRate: null }
+              severalInvalid:
+                summary: Several invalid fields, one error each, in field order
+                value: { loanAmount: 'abc', annualRate: '25', termYears: '2,5' }
+      responses:
+        '200':
+          description: All inputs valid; the calculation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalculationResult'
+              examples:
+                standard:
+                  value:
+                    id: 3f2b8c1e-5d4a-4e9b-9a7c-1b2c3d4e5f60
+                    numberOfPayments: 360
+                    regularPayment: '449.04'
+                    finalPayment: '452.02'
+                    totalPaid: '161657.38'
+                    totalInterest: '61657.38'
+                earlyTermination:
+                  value:
+                    id: 7a1d9e2f-3b4c-4d5e-8f6a-0b1c2d3e4f50
+                    numberOfPayments: 355
+                    regularPayment: '17.97'
+                    finalPayment: '17.97'
+                    totalPaid: '6379.35'
+                    totalInterest: '5304.20'
+                zeroRate:
+                  summary: Not saved (id null, D5)
+                  value:
+                    id: null
+                    numberOfPayments: 12
+                    regularPayment: '83.33'
+                    finalPayment: '83.37'
+                    totalPaid: '1000.00'
+                    totalInterest: '0.00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          description: At least one input is invalid. Nothing was calculated or saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                allMissing:
+                  value:
+                    errors:
+                      - { field: loanAmount, code: required }
+                      - { field: annualRate, code: required }
+                      - { field: termYears, code: required }
+                severalInvalid:
+                  value:
+                    errors:
+                      - { field: loanAmount, code: not_a_number }
+                      - { field: annualRate, code: above_max }
+                      - { field: termYears, code: not_whole_number }
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/health:
+    get:
+      tags: [health]
+      operationId: getHealth
+      summary: Liveness check.
+      description: Returns 200 while the backend process can serve requests. It does not check the database.
+      responses:
+        '200':
+          description: The backend is running.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    const: ok
+              example: { status: ok }
+
+components:
+  schemas:
+    RawInput:
+      description: |
+        A value exactly as the user typed it, before any parsing (V1 01 §3.2):
+        - Leading and trailing whitespace is ignored, using the set of JavaScript's
+          `String.prototype.trim` (this includes NBSP and U+FEFF).
+        - Inside the number, only U+0020 spaces are allowed, as thousands separators. Any other
+          character, including NBSP and U+202F (which `Intl.NumberFormat('sk-SK')` produces),
+          gives `not_a_number`.
+        - `.` or `,` is the decimal separator.
+        - An empty or whitespace-only string, `null` and an absent property all mean "not provided"
+          and give the code `required`.
+
+        The 100-character limit is a transport limit (→ `400`), not a validation rule. The frontend
+        MUST set `maxlength="100"` on the inputs. Browsers count UTF-16 code units, which are never
+        fewer than the code points counted here, so a user can never reach the limit.
+      type: [string, 'null']
+      maxLength: 100
+
+    CalculationRequest:
+      type: object
+      additionalProperties: false
+      description: All properties are optional at this level; a missing value is reported as `required` in a `422`.
+      properties:
+        loanAmount:
+          $ref: '#/components/schemas/RawInput'
+          description: Loan amount in EUR; valid range 1 000,00 – 1 000 000,00, at most 2 decimals.
+        annualRate:
+          $ref: '#/components/schemas/RawInput'
+          description: Nominal annual interest rate in %; valid range 0,00 – 20,00, at most 2 decimals.
+        termYears:
+          $ref: '#/components/schemas/RawInput'
+          description: Term in whole years; valid range 1 – 30.
+
+    Money:
+      description: An amount in EUR, already rounded half up to cents by the backend. Never negative.
+      type: string
+      pattern: '^(0|[1-9][0-9]*)\.[0-9]{2}$'
+      examples: ['449.04', '0.00', '1000000.00']
+
+    CalculationResult:
+      description: Open for additive growth; clients ignore unknown properties.
+      type: object
+      required: [id, numberOfPayments, regularPayment, finalPayment, totalPaid, totalInterest]
+      properties:
+        id:
+          description: |
+            The saved calculation's id, or `null` when it was not saved. That happens when
+            persistence is not configured (Phases 4–5) or the database is unavailable (D5).
+          type: [string, 'null']
+          format: uuid
+        numberOfPayments:
+          description: |
+            Payments actually made: term × 12 or fewer. In V2 a loan can end early because of
+            rounding (V1 01 §4.4); from Phase 7, also because of extra payments.
+            V2 does not display it (01-functional V2 §3), but it is part of the result.
+          type: integer
+          minimum: 1
+          maximum: 360
+        regularPayment:
+          $ref: '#/components/schemas/Money'
+          description: The regular monthly payment.
+        finalPayment:
+          $ref: '#/components/schemas/Money'
+          description: |
+            The last payment, which absorbs all rounding differences. Always > 0.00.
+            The frontend shows it only if it differs from `regularPayment` by €0.01 or more.
+        totalPaid:
+          $ref: '#/components/schemas/Money'
+          description: |
+            The sum of all payments made. Without extra payments this is
+            regularPayment × (numberOfPayments − 1) + finalPayment.
+        totalInterest:
+          $ref: '#/components/schemas/Money'
+          description: totalPaid − loan amount.
+
+    Field:
+      description: |
+        The input an error refers to. Known values today: `loanAmount`, `annualRate`, `termYears`.
+        Phase 7 adds `extraPayments`. Clients MUST handle unknown values with a generic message.
+      type: string
+      examples: [loanAmount, annualRate, termYears]
+
+    ValidationErrorCode:
+      description: |
+        Known values today (V1 01 §3.3). Each input is checked in this order and reports only its
+        first failure: `required` → `not_a_number` → `negative` → `not_whole_number` →
+        `too_many_decimals` → `below_min` / `above_max`.
+        Phase 7 adds codes. Clients MUST handle unknown values with a generic message.
+      type: string
+      examples: [required, not_a_number, negative, not_whole_number, too_many_decimals, below_min, above_max]
+
+    ValidationError:
+      type: object
+      required: [field, code]
+      properties:
+        field:
+          $ref: '#/components/schemas/Field'
+        code:
+          $ref: '#/components/schemas/ValidationErrorCode'
+        index:
+          description: Reserved for Phase 7. The position of the `extraPayments` item the error refers to (0-based).
+          type: integer
+          minimum: 0
+
+    ValidationErrorResponse:
+      type: object
+      required: [errors]
+      properties:
+        errors:
+          description: |
+            At most one error per input, in input order (today: loanAmount, annualRate, termYears).
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ValidationError'
+
+    Problem:
+      description: |
+        RFC 9457 problem details. Clients rely on `status` only. `detail` never contains request
+        values and is absent on `500`.
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+
+  responses:
+    BadRequest:
+      description: The request is malformed (see "Two kinds of client error" above).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Bad Request
+            status: 400
+            detail: 'Unknown property: loanamount'
+    PayloadTooLarge:
+      description: The body is larger than 1 KiB.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Content Too Large
+            status: 413
+    UnsupportedMediaType:
+      description: The request's Content-Type is not `application/json`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Unsupported Media Type
+            status: 415
+    TooManyRequests:
+      description: Too many requests from this client; retry after the given number of seconds.
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Too Many Requests
+            status: 429
+    InternalError:
+      description: Unexpected server error. No partial result and no detail are returned.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Internal Server Error
+            status: 500

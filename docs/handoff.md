@@ -139,8 +139,20 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
   - **V1 parity:** `tools/v1_parity.py` → 6 800 loans, **0 mismatches** against `legacy/cli` (TypeScript).
   - **Windows Application Control blocks `.venv\Scripts\pytest.exe`**: use `uv run python -m pytest`. Bash sessions that were open before the PATH change don't see `uv`; use `py -m uv`.
 
+- **Phase 3 written and reviewed (Prompt 31), waiting for the author's approval:** `api/openapi.yaml` (OpenAPI 3.1.0).
+  - Contents:
+    - `POST /api/v1/calculations`: raw strings in; 2-dp `Money` strings out; `422 {errors:[{field, code}]}`; `400`/`413`/`415`/`429`/`500` as problem+json.
+    - `GET /api/v1/health`.
+  - Independent review: `docs/v2/03-api-review.md`. Verdict "approve with changes": 5 Major, 8 Minor, **all applied**. Responses and the error vocabulary are open for Phase 7, the request stays closed, FastAPI's defaults must be overridden, error bodies never echo input, there is a 1 KiB body limit, and CORS uses an allowlist.
+  - `backend/tests/contract/test_openapi.py`: 37 tests. They check that the spec is valid, that every example is valid against its schema, that every request example matches the real backend, and that money is never a number. Backend total: **160 passed**.
+  - The plan's Phase 4 "done when" is now "API tests prove conformance to `openapi.yaml`" and lists the required overrides.
+
 ## Next Steps
-V2, **Phase 3 — API contract**: write `api/openapi.yaml` from plan §3 (`POST /api/v1/calculations`: raw strings in, 2-dp strings out, `422` with the V1 error codes; `GET /api/v1/health`). Leave room for the Phase 7 `extraPayments` field. Then an independent review (Layer 4 style) and the author's approval.
+1. **The author approves `api/openapi.yaml`** (the Phase 3 "done when").
+2. V2, **Phase 4 — backend API**: FastAPI app in `backend/mortgage/api/`, implementing `api/openapi.yaml` exactly.
+   - Add problem+json handlers (400/413/415/500), serve the YAML as the app's OpenAPI, enforce the 1 KiB body limit and a CORS allowlist.
+   - API tests for every status code, including `{"loanAmount":"\ud800"}` → 400.
+   - Extend the architecture guard with an `api` layer.
 
 Open for Phase 7: the FR-5 extra-payment questions in `docs/v2/01-functional.md` §2.2.
 
