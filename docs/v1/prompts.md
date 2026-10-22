@@ -696,3 +696,86 @@ Min/max recorded as inclusive.
   - **V2:** 6 rules (plan is the source of truth, sweep tests, mutation testing, re-review fixes, decide all findings, check prompt examples), process changes (Layer 4b code review, clean-context experiment, effort metrics, `domain/schedule` first) and tooling (pinned versions, checked-in reference script, StrykerJS, CI, `node-pty`).
 - Updated `docs/handoff.md` (Part A, Part B and the retrospective complete).
 - Committed as "docs: complete V1 retrospective and final prompt log (06-retro.md)". `no-plan/` was left uncommitted, as in Prompts 18–19.
+
+## Prompt 21 — V2 refactor plan: Frontend / API / Backend / Supabase (00-refactor-plan.md)
+
+### Prompt
+
+> I want to refractor my hypotekarna-kalkulacka-v2 to 4 parts and I need a plan for it:
+>
+> * Frontend (JavaScript) – vstupy od používateľa a zobrazenie výsledku; volá API.
+> * API – dohoda medzi frontendom a backendom: aký vstup, aký výstup.
+> * Backend (Python) – výpočty: splátka, mimoriadna splátka, neskôr ďalšia logika.
+> * Supabase – databáza, do ktorej aplikácia ukladá dáta.
+>
+> create plan first, and the we'll proceed
+
+### Output
+
+- Created `docs/v2/00-refactor-plan.md` (draft, no code changed):
+  - Target split and data flow; money travels as decimal strings, rounding to cents stays in the backend only.
+  - Mapping of V1 modules M1–M9 to V2 (M1–M4, M7 → Python backend; M5–M6 → frontend; M8–M9 retired).
+  - API contract sketch: `POST /api/v1/calculations` (raw text in, 2-dp strings out, `422` with V1 error codes).
+  - Supabase `calculations` table (`numeric` columns, RLS on, backend-only access).
+  - Repository layout, 9 phases (0 decisions → 8 CI/clean-up), risks, and 11 decisions (D1–D11) for the author.
+- Logged here in `docs/v1/prompts.md` because CLAUDE.md still names this file; Phase 0 proposes moving to `docs/v2/prompts.md`.
+- Updated `docs/handoff.md`. Not committed.
+
+## Prompt 22 — Python installation help
+
+### Prompt
+
+> can you help me with python installation?
+
+### Output
+
+- Found that Python **3.14.3** was already installed (`py --list`). Only the bare `python` command is missing: it opens the Microsoft Store alias.
+- Installed `uv` 0.13.5 with `py -m pip install --user uv`. `py -m uv python find` → the existing Python 3.14, so Python 3.13 was not installed.
+- `uv`'s folder (`%APPDATA%\Python\Python314\Scripts`) is not on PATH; use `py -m uv …` until it is added.
+- Updated `docs/v2/00-refactor-plan.md` (backend targets Python 3.14) and `docs/handoff.md`. Not committed.
+
+## Prompt 23 — Add uv to the user PATH
+
+### Prompt
+
+> Yes, add %APPDATA%\Python\Python314\Scripts to my user PATH.
+
+### Output
+
+- Appended `C:\Users\nikai\AppData\Roaming\Python\Python314\Scripts` to the **user** PATH; the existing entries were kept. The system PATH was not changed.
+- Verified: `uv --version` → `uv 0.13.5`. Terminals that were already open need a restart to pick it up.
+- Updated `docs/handoff.md` and `docs/v2/00-refactor-plan.md`. Not committed.
+
+## Prompt 24 — Decision D7: extra payments shorten the term
+
+### Prompt
+
+> when it comes to extra payments, they should shorten the term.
+
+### Output
+
+- Recorded D7 (partly) in `docs/v2/00-refactor-plan.md` §8: an extra payment shortens the term and the regular payment stays the same. Still open: one-time or recurring, fee, limits.
+- Removed the `strategy` field from the planned API request (§3) and the `extra_payments` table (§4), since there is only one rule.
+- Fixed two references that pointed to Phase 6 for extra payments; it is Phase 7.
+- Updated `docs/handoff.md`. Not committed.
+
+## Prompt 25 — Decision D7: no extra payments
+
+### Prompt
+
+> ok, we dont need extra-payments, make it withou them
+
+### Output
+
+- `docs/v2/00-refactor-plan.md`: D7 is now "out of scope". The extra-payment phase was removed, Clean-up & CI became Phase 7 (8 phases, 0–7), and the extra-payment parts were removed: the API field, the `extra_payments` table, the `domain/schedule.py` row and the risk row. This replaces the Prompt 24 decision.
+- Updated `docs/handoff.md`. Not committed.
+
+## Prompt 26 — What next?
+
+### Prompt
+
+> what shoul we do next?
+
+### Output
+
+- Answered: decide D1–D6 and D8–D11 (or accept the recommended defaults), then start Phase 0 (update `CLAUDE.md` for V2, write the `docs/v2/01-functional.md` delta) and commit the planning docs.

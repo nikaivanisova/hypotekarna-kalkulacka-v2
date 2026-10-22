@@ -116,7 +116,16 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
 - Author confirmation of the sub-half-cent tail rule (01 §4.4 step 3; 05 §6.3). It is guarded by test 106 only.
 - Whether to display the number of payments when a loan ends early (V1 outputs do not show it).
 
+## V2 Refactor (started 2026-10-22)
+- **Plan drafted:** `docs/v2/00-refactor-plan.md` (Prompt 21). Splits the app into Frontend (JS), API (OpenAPI contract), Backend (Python/FastAPI) and Supabase, in 8 phases (0–7).
+- **Decisions D1–D11 made (Prompt 27):** the author accepted the recommendations; D8 = English (as in V1), D11 is settled at Phase 6.
+- **Phase 0 complete (Prompt 27):** `CLAUDE.md` rewritten for V2 (prompt log moves to `docs/v2/prompts.md`); `docs/v2/01-functional.md` written (V1 behaviour kept exactly, plus web UI and FR-4 "save calculation").
+- **Decided (Prompt 25):** D7: extra payments (*mimoriadna splátka*) are **out of scope** for V2; the extra-payment phase was removed. (Prompt 24 had said they would shorten the term.)
+- Python setup (Prompt 22): Python **3.14.3** is installed and reachable as `py` (the bare `python` command opens the Microsoft Store alias). `uv` 0.13.5 is installed with `py -m pip install --user uv`; it finds Python 3.14. Its folder `%APPDATA%\Python\Python314\Scripts` was added to the user PATH (Prompt 23), so `uv` works in new terminals. The backend targets Python 3.14.
+
 ## Next Steps
+V2: answer D1–D11 in `docs/v2/00-refactor-plan.md` §8, then start Phase 0 (update `CLAUDE.md` for V2 scope).
+
 V1 is complete. Before or at the start of V2:
 1. Confirm AC-3 by hand: run `npm start` (`npm.cmd start` in PowerShell), type `100 000`, `3,5` and `30`, then check the 4 result lines and exit code 0.
 2. Decide whether to keep the `no-plan/` experiment (commit it on `experiment/no-plan`) or delete it.
