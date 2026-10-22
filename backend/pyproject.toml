@@ -1,0 +1,20 @@
+[project]
+name = "mortgage-backend"
+version = "0.1.0"
+description = "V2 mortgage calculator backend: parsing, validation and calculation"
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+# Exact versions (docs/v1/06-retro.md §6.3).
+dev = [
+    "pytest==9.1.1",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"

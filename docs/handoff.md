@@ -127,10 +127,22 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
   - `tools/reference.py`: REF-ET from 03 Appendix B, now self-checking. `py -I tools/reference.py` → 8/8 examples ok, sweep 6 800 / 767 early / 0 violations, exit 0.
   - `api/`, `backend/`, `frontend/`, `supabase/migrations/` scaffolded with a README each (no code yet). `.gitignore` covers Python, `.env` and `dist/`.
 
-## Next Steps
-V2, **Phase 2 — backend core (port)**: in `backend/`, set up a `uv` project (Python 3.14, pytest) and port M1–M4 + M7 test-first. Port tests 1–61, 80–84 and 96–109 from `legacy/cli/tests/` with identical expected values, including the sweep (108). Python's `Decimal` accepts `NaN`/`Infinity`/`1e5`, so the strict grammar must run before `Decimal()`. Use a private `decimal.Context(prec=40, rounding=ROUND_HALF_UP)`. Done when pytest is green and outputs match `tools/reference.py`.
+- **Phase 2 complete (Prompts 29–30):** `backend/mortgage/` is a Python port of V1 M1–M4 and M7, built test-first (red: 5 modules failed to import → green).
+  - `uv run python -m pytest` (in `backend/`) → **123 passed** (≈ 18 s; the reference parity test takes ≈ 16 s). Python 3.14.3, pytest 9.1.1 (pinned), no runtime dependencies.
+  - Every V1 test of 03 for M2, M3, M4 and M7 (1–61, 80–84, 93–95, 96–109) was ported with the same name and expected values. The amounts are compared as 2-dp strings, which is stricter than V1.
+  - M7 now returns data (`Calculated` / `Rejected` with error codes), not display text. Labels, messages and "hide an equal Final Payment" move to the frontend (Phase 5, tests 62–79).
+  - New in V2:
+    - Python-specific guards: the JS `trim()` whitespace set, `fullmatch` instead of a `$` anchor, ASCII digits only, and `-0` via `is_signed()`.
+    - Second guards for single-test rules: a second zero-tail loan (1 176.40 € / 20 % / 25 y → 298 payments, from `tools/reference.py`), the private context, `-0` and the whole-number check.
+    - `test_reference_parity`: all 6 800 sweep loans equal the exact reference.
+  - **Hand mutation check:** 13 mutations, all caught; every rule now fails ≥ 2 tests. The mutations covered early termination, the zero-tail rule, half-even rounding, intermediate rounding, the global context, the grammar gate, `match` instead of `fullmatch`, `str.strip()`, `-0`, the whole-number check, the call order, I/O in the domain, and the import direction.
+  - **V1 parity:** `tools/v1_parity.py` → 6 800 loans, **0 mismatches** against `legacy/cli` (TypeScript).
+  - **Windows Application Control blocks `.venv\Scripts\pytest.exe`**: use `uv run python -m pytest`. Bash sessions that were open before the PATH change don't see `uv`; use `py -m uv`.
 
-Phase 3 (API contract, `api/openapi.yaml`) can be written in parallel.
+## Next Steps
+V2, **Phase 3 — API contract**: write `api/openapi.yaml` from plan §3 (`POST /api/v1/calculations`: raw strings in, 2-dp strings out, `422` with the V1 error codes; `GET /api/v1/health`). Leave room for the Phase 7 `extraPayments` field. Then an independent review (Layer 4 style) and the author's approval.
+
+Open for Phase 7: the FR-5 extra-payment questions in `docs/v2/01-functional.md` §2.2.
 
 V1 is complete. Before or at the start of V2:
 1. Confirm AC-3 by hand: run `npm start` (`npm.cmd start` in PowerShell), type `100 000`, `3,5` and `30`, then check the 4 result lines and exit code 0.
