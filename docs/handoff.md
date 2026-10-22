@@ -123,8 +123,14 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
 - **Decided (Prompt 25):** D7: extra payments (*mimoriadna splátka*) are **out of scope** for V2; the extra-payment phase was removed. (Prompt 24 had said they would shorten the term.)
 - Python setup (Prompt 22): Python **3.14.3** is installed and reachable as `py` (the bare `python` command opens the Microsoft Store alias). `uv` 0.13.5 is installed with `py -m pip install --user uv`; it finds Python 3.14. Its folder `%APPDATA%\Python\Python314\Scripts` was added to the user PATH (Prompt 23), so `uv` works in new terminals. The backend targets Python 3.14.
 
+- **Phase 1 complete (Prompt 27):** V1 moved with `git mv` to `legacy/cli/` (history kept). There, `npm.cmd ci` + `npm.cmd test` → 112/112, typecheck 0 errors. The root `node_modules/` was deleted; V1 now has its own in `legacy/cli/`.
+  - `tools/reference.py`: REF-ET from 03 Appendix B, now self-checking. `py -I tools/reference.py` → 8/8 examples ok, sweep 6 800 / 767 early / 0 violations, exit 0.
+  - `api/`, `backend/`, `frontend/`, `supabase/migrations/` scaffolded with a README each (no code yet). `.gitignore` covers Python, `.env` and `dist/`.
+
 ## Next Steps
-V2: answer D1–D11 in `docs/v2/00-refactor-plan.md` §8, then start Phase 0 (update `CLAUDE.md` for V2 scope).
+V2, **Phase 2 — backend core (port)**: in `backend/`, set up a `uv` project (Python 3.14, pytest) and port M1–M4 + M7 test-first. Port tests 1–61, 80–84 and 96–109 from `legacy/cli/tests/` with identical expected values, including the sweep (108). Python's `Decimal` accepts `NaN`/`Infinity`/`1e5`, so the strict grammar must run before `Decimal()`. Use a private `decimal.Context(prec=40, rounding=ROUND_HALF_UP)`. Done when pytest is green and outputs match `tools/reference.py`.
+
+Phase 3 (API contract, `api/openapi.yaml`) can be written in parallel.
 
 V1 is complete. Before or at the start of V2:
 1. Confirm AC-3 by hand: run `npm start` (`npm.cmd start` in PowerShell), type `100 000`, `3,5` and `30`, then check the 4 result lines and exit code 0.
