@@ -2,7 +2,7 @@
 
 Status: **Approved** (2026-10-22), from the decisions in [`00-refactor-plan.md`](00-refactor-plan.md) §8.
 
-V2 is the V1 calculator as a **web app**, with each successful calculation saved to a database. **The calculation does not change.** This document lists only what differs from [`../v1/01-functional.md`](../v1/01-functional.md); everything not mentioned here applies unchanged.
+V2 is the V1 calculator as a **web app**, with each successful calculation saved to a database, plus **extra payments** (FR-5). **The V1 calculation does not change**; extra payments are added on top of it. This document lists only what differs from [`../v1/01-functional.md`](../v1/01-functional.md); everything not mentioned here applies unchanged.
 
 ---
 
@@ -29,18 +29,26 @@ V2 is the V1 calculator as a **web app**, with each successful calculation saved
 - **Invalid input:** the page shows the V1 error message under each invalid field and no results. The typed values stay in the fields so the user can correct them. (This replaces the CLI's "ask again for the invalid fields".)
 - **Backend unreachable:** the page shows one general error message and no results.
 
-### 2.2 New requirement
+### 2.2 New requirements
 
 | ID | Short name | Rule |
 |---|---|---|
 | FR-4 | Save calculation | Every successful calculation is saved in Supabase: the validated inputs, the results, and the time. Calculations are anonymous (D9). If saving fails, the result is still shown (D5). The user cannot list, reload or delete saved calculations in V2. |
+| FR-5 | Extra payment (*mimoriadna splátka*) | The user can add an extra payment to the loan. **It shortens the term; the regular monthly payment does not change** (D7). Without extra payments, every result is exactly the V1 result. The detailed rules are written and reviewed in Phase 7, before any code. |
+
+**FR-5 questions for the Phase 7 spec** (decided before Phase 7 code starts):
+
+- One-time payments at a chosen month, or also recurring ones? (Suggested first cut: one-time, any number of them.)
+- Fee for paying early? (Suggested: none.)
+- Limits: minimum/maximum amount, which months are allowed, what happens if the extra payment is larger than the remaining balance.
+- Outputs: which new results the page shows (e.g. new number of payments, months saved, interest saved).
 
 ### 2.3 Out of scope for V2
 
-Everything in V1 §5 stays out of scope, except that results are now **stored** (FR-4). Still out of scope, among others:
+Everything in V1 §5 stays out of scope, except that results are now **stored** (FR-4) and **extra payments** are added (FR-5). Still out of scope, among others:
 
-- Extra or one-off payments (*mimoriadna splátka*) — decided D7.
-- A repayment schedule, variable rates, fees, comparisons, affordability checks.
+- Extra payments that lower the monthly payment instead of shortening the term.
+- A displayed repayment schedule, variable rates, fees, comparisons, affordability checks.
 - User accounts and login (D9); viewing, exporting or sharing saved calculations.
 
 ## 3. Open questions carried over from V1

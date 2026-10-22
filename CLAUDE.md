@@ -5,7 +5,7 @@ Guidelines for working on this project.
 ## Project
 - This is the **Mortgage Calculator V2**: a web app in four parts — frontend (JavaScript), API contract (OpenAPI), backend (Python) and Supabase.
 - The plan is `docs/v2/00-refactor-plan.md`; the functional scope is `docs/v2/01-functional.md`. Keep scope to them.
-- V1 (TypeScript CLI) is complete. `docs/v1/` is read-only history; the V1 code lives in `legacy/cli/` until Phase 7.
+- V1 (TypeScript CLI) is complete. `docs/v1/` is read-only history; the V1 code lives in `legacy/cli/` until Phase 8.
 
 ## Calculation Rules
 - Keep full precision in all intermediate calculations.

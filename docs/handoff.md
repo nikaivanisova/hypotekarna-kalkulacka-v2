@@ -117,10 +117,10 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
 - Whether to display the number of payments when a loan ends early (V1 outputs do not show it).
 
 ## V2 Refactor (started 2026-10-22)
-- **Plan drafted:** `docs/v2/00-refactor-plan.md` (Prompt 21). Splits the app into Frontend (JS), API (OpenAPI contract), Backend (Python/FastAPI) and Supabase, in 8 phases (0–7).
+- **Plan drafted:** `docs/v2/00-refactor-plan.md` (Prompt 21). Splits the app into Frontend (JS), API (OpenAPI contract), Backend (Python/FastAPI) and Supabase, in 9 phases (0–8).
 - **Decisions D1–D11 made (Prompt 27):** the author accepted the recommendations; D8 = English (as in V1), D11 is settled at Phase 6.
 - **Phase 0 complete (Prompt 27):** `CLAUDE.md` rewritten for V2 (prompt log moves to `docs/v2/prompts.md`); `docs/v2/01-functional.md` written (V1 behaviour kept exactly, plus web UI and FR-4 "save calculation").
-- **Decided (Prompt 25):** D7: extra payments (*mimoriadna splátka*) are **out of scope** for V2; the extra-payment phase was removed. (Prompt 24 had said they would shorten the term.)
+- **D7, final (Prompt 28):** extra payments (*mimoriadna splátka*) are **in scope**: an extra payment shortens the term and the regular payment stays the same (as decided in Prompt 24). Prompt 25 had removed them; Prompt 28 restored them as **Phase 7**, with Clean-up & CI as Phase 8. They are FR-5 in `docs/v2/01-functional.md`. The detailed rules (one-time/recurring, fee, limits, outputs) are decided in the Phase 7 spec.
 - Python setup (Prompt 22): Python **3.14.3** is installed and reachable as `py` (the bare `python` command opens the Microsoft Store alias). `uv` 0.13.5 is installed with `py -m pip install --user uv`; it finds Python 3.14. Its folder `%APPDATA%\Python\Python314\Scripts` was added to the user PATH (Prompt 23), so `uv` works in new terminals. The backend targets Python 3.14.
 
 - **Phase 1 complete (Prompt 27):** V1 moved with `git mv` to `legacy/cli/` (history kept). There, `npm.cmd ci` + `npm.cmd test` → 112/112, typecheck 0 errors. The root `node_modules/` was deleted; V1 now has its own in `legacy/cli/`.

@@ -10,8 +10,8 @@ Split the V1 single-process TypeScript CLI into four parts:
 |---|---|---|
 | **Frontend** | JavaScript (browser) | Collects user input, shows results and errors, calls the API. No financial math. |
 | **API** | OpenAPI 3.1 contract (`api/openapi.yaml`) | The agreement between frontend and backend: which input, which output, which errors. |
-| **Backend** | Python (FastAPI) | Parsing, validation and all calculations: regular payment, final payment, totals; later more logic. Writes to Supabase. |
-| **Supabase** | Postgres | Stores the data the application saves (calculations). |
+| **Backend** | Python (FastAPI) | Parsing, validation and all calculations: regular payment, *mimoriadna splátka* (extra payment), later more logic. Writes to Supabase. |
+| **Supabase** | Postgres | Stores the data the application saves (calculations and their extra payments). |
 
 ```
  Browser                      Backend (Python)                       Supabase
@@ -40,6 +40,8 @@ Split the V1 single-process TypeScript CLI into four parts:
 | M8 `ui/cli`, M9 `main` | Retired (or kept as a thin API client — decision D6). | |
 | — | `backend/mortgage/api/` | New: FastAPI routes, request/response models. |
 | — | `backend/mortgage/persistence/` | New: Supabase repository. |
+| — | `backend/mortgage/domain/schedule.py` | New: month-by-month run needed for extra payments (ADR-9). |
+
 ## 3. API contract (v1 of the API)
 
 Contract-first: `api/openapi.yaml` is written and reviewed **before** backend or frontend code. Both sides are tested against it.
@@ -77,6 +79,8 @@ Codes are exactly V1's: `required`, `not_a_number`, `negative`, `below_min`, `ab
 
 - `GET /api/v1/health` — liveness (added with the backend, trivial).
 - `GET /api/v1/calculations/{id}` — reload a saved calculation.
+- Extra payments: optional `extraPayments: [{ "month": 24, "amount": "5000" }]` in the same request, plus extra response fields (see Phase 7). An extra payment always shortens the term (D7), so there is no strategy field; the regular payment stays the same. Additive change → stays `/api/v1`.
+
 ## 4. Supabase schema (first migration)
 
 ```sql
@@ -100,6 +104,7 @@ alter table public.calculations enable row level security;
 - `numeric`, never `float`. Values are stored already rounded (the API output), inputs as validated values.
 - Supabase keys live only in `backend/.env` (gitignored). The frontend never talks to Supabase directly in this plan (decision D4).
 - Migrations are files in `supabase/migrations/`, applied with the Supabase CLI; a local Supabase stack is used for development and tests.
+- Phase 7 adds `extra_payments (id, calculation_id → calculations.id, month, amount)`.
 ## 5. Repository layout
 
 ```
@@ -124,14 +129,15 @@ Each phase ends green (all tests pass), is one commit (or a small series), and u
 
 | # | Phase | Work | Done when |
 |---|---|---|---|
-| **0** | Decisions & docs | Author answers §8. Update `CLAUDE.md` (V2 scope, prompt log in `docs/v2/prompts.md`, retro §6.1 rules). Write `docs/v2/01-functional.md` delta (web UI; extra payments are out of scope, D7). | Decisions recorded; CLAUDE.md updated. |
+| **0** | Decisions & docs | Author answers §8. Update `CLAUDE.md` (V2 scope, prompt log in `docs/v2/prompts.md`, retro §6.1 rules). Write `docs/v2/01-functional.md` delta (web UI; extra payments, D7). | Decisions recorded; CLAUDE.md updated. |
 | **1** | Restructure repo | Move V1 TS to `legacy/cli/` with its tests still green. Create empty `backend/`, `frontend/`, `api/`, `supabase/`. Check in `tools/reference.py`. | `legacy` tests 112/112; new folders scaffolded. |
 | **2** | Backend core (port) | Port M1–M4 + M7 to Python, test-first. Port every domain/input/app test from V1 (tests 1–61, 80–84, 96–109) with **identical expected values**, including the property sweep (test 108). Architecture guard in Python (import-linter). | pytest green; reference script agrees with every expected value; parity with V1 on a shared input sweep. |
 | **3** | API contract | Write `api/openapi.yaml` (§3). Review it (Layer 4-style, independent). | Contract approved by the author. |
 | **4** | Backend API | FastAPI routes + Pydantic models generated/checked against the contract. Contract tests (e.g. schemathesis) + API tests for 200/422/400/500. CORS for the frontend origin only. | API tests green; `/docs` matches `openapi.yaml`. |
 | **5** | Frontend | Vite + vanilla JS: form (3 fields), per-field error display, result view; port M5/M6 tests (62–79) to Vitest; API client with a mock server for unit tests. Playwright e2e against the real backend. | Vitest + Playwright green; manual check in the browser. |
 | **6** | Supabase | Migration (§4), local stack, `persistence/` repository, `POST` saves and returns `id`. Integration test against local Supabase. Decide behaviour if Supabase is down (D5). | Row written per successful calculation; RLS verified (anon key cannot read). |
-| **7** | Clean-up & CI | Delete `legacy/` (or keep CLI as API client), GitHub Actions: pytest, Vitest, reference script, contract tests, Playwright. Retro for V2. | CI green on `master`. |
+| **7** | Mimoriadna splátka | Layer 1 spec first (D7), then independent review, then `domain/schedule.py` with its own sweep tests, API extension, `extra_payments` table, frontend UI. | Spec reviewed; sweep + mutation checks pass; e2e covers an extra payment. |
+| **8** | Clean-up & CI | Delete `legacy/` (or keep CLI as API client), GitHub Actions: pytest, Vitest, reference script, contract tests, Playwright. Retro for V2. | CI green on `master`. |
 
 Phases 2 and 3 can run in parallel; 5 can start on a mock server as soon as 3 is approved.
 
@@ -143,6 +149,7 @@ Phases 2 and 3 can run in parallel; 5 can start on a mock server as soon as 3 is
 | Floats sneak in (JSON numbers, JS `Number`, Postgres `float`) | Money as strings in the contract; `numeric` in SQL; a contract test rejects numeric money fields. |
 | Validation drifts between frontend and backend | Backend is the only validator; frontend does at most "field is empty" hints. |
 | Supabase secret leaks to the browser | Service key only in backend env; RLS on with no public policies; `.env` gitignored. |
+| Extra-payment rules decided during the build (V1 lesson) | Phase 7 starts with spec + review; no code until every finding has a decision. |
 | Windows tooling friction | Document `npm.cmd`, `uv run` commands; CI on Linux and Windows. |
 | `python` is not on PATH on the dev machine (it opens the Microsoft Store alias) | Python 3.14.3 is installed and reachable as `py`; `uv` 0.13.5 is installed (2026-10-22). The user Scripts folder is on the user PATH, so `uv` runs directly. |
 
@@ -155,9 +162,9 @@ Phases 2 and 3 can run in parallel; 5 can start on a mock server as soon as 3 is
 | D3 | Who parses user text: frontend or backend? | **Backend** (raw strings in the API) — one owner of the V1 grammar. |
 | D4 | Does the frontend talk to Supabase directly? | **No** — only via the backend; simpler security. Revisit if user accounts (Supabase Auth) are added. |
 | D5 | If Supabase is down, should a calculation still return a result? | **Yes**, with `id: null` and a logged warning. |
-| D6 | Keep the CLI? | **Retire it** after parity is proven (Phase 7). |
-| D7 | Extra payments (*mimoriadna splátka*)? | **Decided (2026-10-22): out of scope.** V2 has no extra payments. (An earlier answer said they would shorten the term; keep that if they come back later.) |
+| D6 | Keep the CLI? | **Retire it** after parity is proven (Phase 8). |
+| D7 | Extra payments (*mimoriadna splátka*)? | **In scope (2026-10-22, Prompt 28): an extra payment shortens the term; the regular payment does not change.** Still open, for the Phase 7 spec: one-time or recurring? Fee? Limits (min/max amount, which months)? Suggested first cut: one-time payments at a given month, no fee. |
 | D8 | UI language: Slovak, English, or both? | **English**, as in V1 (01 §3.5), so the V1 UI texts and their tests carry over unchanged. All texts stay in one messages table, so switching to Slovak later is a one-file change. |
 | D9 | Users / login, or anonymous calculations? | **Anonymous** for V2; auth later. |
-| D10 | Hosting (later): e.g. frontend on Netlify/Vercel, backend on Render/Fly, Supabase cloud. | Decide at Phase 7; develop locally until then. |
+| D10 | Hosting (later): e.g. frontend on Netlify/Vercel, backend on Render/Fly, Supabase cloud. | Decide at Phase 8; develop locally until then. |
 | D11 | Use an existing Supabase project or create a new one? | **Decide at Phase 6:** use an existing project if the author names one, otherwise create a new one. Phases 1–5 need no Supabase. |

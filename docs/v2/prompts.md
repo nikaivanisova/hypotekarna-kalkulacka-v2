@@ -21,3 +21,19 @@ Prompts 21–26 (the V2 plan, the Python setup and decision D7) are logged in `d
   - `tools/reference.py` (REF-ET) checked in and made self-checking → 8/8 ok, sweep 6 800 / 767 / 0, exit 0.
   - Scaffolded `api/`, `backend/`, `frontend/`, `supabase/migrations/` (README only); `.gitignore` extended; root README rewritten.
   - Committed as "refactor: move V1 to legacy/cli and scaffold V2 parts (Phase 1)". `no-plan/` was left uncommitted.
+
+## Prompt 28 — Restore extra payments
+
+### Prompt
+
+> im sorry, i deleted extra-payment, but it should be in it. can you return it?
+
+### Output
+
+- Interrupted Phase 2 (Prompt in progress: "Start Phase 2: port the calculation to Python in backend/, test-first."). Only the V1 sources and tests had been read; nothing was written in `backend/` yet. Phase 2 resumes next.
+- Restored extra payments, with the Prompt 24 rule (an extra payment shortens the term; the regular payment stays the same):
+  - `00-refactor-plan.md`: D7 = in scope; Phase 7 "Mimoriadna splátka" is back; Clean-up & CI is Phase 8 again (D6 and D10 point to it). Also restored: the `extraPayments` API field (no strategy field), the `extra_payments` table, the `domain/schedule.py` row and the extra-payment risk row. Fixed two headings that had lost their blank line in the removal.
+  - `01-functional.md`: new FR-5 "Extra payment", with the questions the Phase 7 spec must answer; removed extra payments from the out-of-scope list.
+  - `CLAUDE.md`, `legacy/cli/README.md`: `legacy/` is deleted in Phase 8. `backend/README.md`: Phase 7 added.
+  - Updated `docs/handoff.md`.
+- Committed as "docs: restore extra payments (FR-5, Phase 7) in the V2 plan".
