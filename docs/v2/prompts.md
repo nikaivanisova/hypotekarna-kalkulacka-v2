@@ -100,3 +100,54 @@ Prompts 21–26 (the V2 plan, the Python setup and decision D7) are logged in `d
   - Every example is now validated.
 - The plan's Phase 4 row is updated (the overrides, "done when" = conformance to `openapi.yaml`). Added `api/README.md`.
 - Backend: 160 passed. Committed as "feat: API contract with independent review (Phase 3)". Waiting for the author's approval of the contract.
+
+## Prompt 32 — Approve the contract; Phase 4: backend API
+
+### Prompt
+
+> I approve api/openapi.yaml. Start Phase 4: build the FastAPI backend API.
+
+### Output
+
+- Recorded the approval (`03-api-review.md`, `docs/handoff.md`); Phase 3 is complete.
+- Dependencies (pinned exactly):
+  - Runtime: `fastapi` 0.159.1, `uvicorn` 0.54.0, `pyyaml` 6.0.3.
+  - Dev: `httpx2` 2.16.0. Starlette 1.9 deprecates `httpx` for its test client.
+- Tried **schemathesis** 4.32.3 and removed it: Windows Application Control blocks its native `jsonschema_rs` DLL. Replaced it with a per-response contract check in every API test and a 600-request seeded fuzz test.
+- **Red:** `tests/api/test_api.py` written first, which failed with `No module named 'mortgage.api'`.
+- **Green:** `mortgage/api/app.py`, `request.py`, `problems.py`, `body_limit.py`.
+  - The body is parsed by hand, so FastAPI's default 422 never runs.
+  - `api/openapi.yaml` is served as `/openapi.json`.
+  - Problem+json for every HTTP error; a 1 KiB limit; a CORS allowlist from `MORTGAGE_CORS_ORIGINS` (`*` refused).
+- Fixed a test bug found on the first run: the fuzz test sent `json=None`, which means no body, so the app correctly answered 415. It now always sends a JSON body.
+- The architecture guard gained the `api` layer: it may import `app/*` and `domain/types`. The no-I/O check is limited to the core layers.
+- Real-server smoke test (uvicorn + curl): health, 200, 422, 400 (`\ud800`, number), 413, 415, the CORS preflight and `/openapi.json` all as documented, and the server log was empty.
+- Hand mutation check:
+  - 19 mutations of the API layer; all were caught. One was rewritten because it was equivalent to the original code.
+  - Second test cases were added until each rule failed ≥ 2 tests.
+  - The redundant `parse_constant` (`NaN`) guard was removed: the string check already rejects `NaN`.
+- Interrupted by Prompt 33 before the final run.
+
+## Prompt 33 — Pause
+
+### Prompt
+
+> can you pause and resume when i say to?
+
+### Output
+
+- Stopped. Nothing was committed; the state was summarised for resuming.
+
+## Prompt 34 — Resume
+
+### Prompt
+
+> resume
+
+### Output
+
+- After the session restart, checked that the uncommitted Phase 4 work was intact.
+- Full suite → 225 passed (deprecations as errors).
+- All 19 API mutations caught by ≥ 2 tests. The two Content-Length tests were split into parametrized cases, so each rule visibly has two tests.
+- **Not implemented:** rate limiting (`429`, optional in the contract). The limits are a policy decision, carried over to Phase 8.
+- Updated `backend/README.md`, `docs/handoff.md` and `03-api-review.md`. Committed as "feat: FastAPI backend implementing the API contract (Phase 4)".

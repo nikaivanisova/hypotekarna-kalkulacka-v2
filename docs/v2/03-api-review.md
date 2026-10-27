@@ -1,6 +1,6 @@
 # 03 — API Contract Review (Phase 3)
 
-Status: **All findings resolved** (2026-10-22). Waiting for the author's approval of `api/openapi.yaml`.
+Status: **All findings resolved** (2026-10-22). `api/openapi.yaml` **approved by the author** (Prompt 32).
 
 An independent reviewer (a separate agent that had not written the contract) reviewed `api/openapi.yaml` against `backend/mortgage`, the V1/V2 specs and the plan, using the Layer 4 rules: "you did not write this", run things, do not estimate. The verdict was **approve with changes**: 5 Major, 8 Minor findings, no Blocker.
 

@@ -139,7 +139,7 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
   - **V1 parity:** `tools/v1_parity.py` → 6 800 loans, **0 mismatches** against `legacy/cli` (TypeScript).
   - **Windows Application Control blocks `.venv\Scripts\pytest.exe`**: use `uv run python -m pytest`. Bash sessions that were open before the PATH change don't see `uv`; use `py -m uv`.
 
-- **Phase 3 written and reviewed (Prompt 31), waiting for the author's approval:** `api/openapi.yaml` (OpenAPI 3.1.0).
+- **Phase 3 complete (Prompt 31; approved by the author in Prompt 32):** `api/openapi.yaml` (OpenAPI 3.1.0).
   - Contents:
     - `POST /api/v1/calculations`: raw strings in; 2-dp `Money` strings out; `422 {errors:[{field, code}]}`; `400`/`413`/`415`/`429`/`500` as problem+json.
     - `GET /api/v1/health`.
@@ -147,12 +147,31 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
   - `backend/tests/contract/test_openapi.py`: 37 tests. They check that the spec is valid, that every example is valid against its schema, that every request example matches the real backend, and that money is never a number. Backend total: **160 passed**.
   - The plan's Phase 4 "done when" is now "API tests prove conformance to `openapi.yaml`" and lists the required overrides.
 
+- **Phase 4 complete (Prompts 32–34):** FastAPI app in `backend/mortgage/api/`, implementing `api/openapi.yaml`.
+  - `app.py` (routes, `create_app(cors_origins)`, serves the YAML as `/openapi.json`), `request.py` (strict body reading → 400), `problems.py` (problem+json for every HTTP error; no `detail` on 5xx), `body_limit.py` (1 KiB, checked on Content-Length and while streaming → 413).
+  - The body is parsed by hand (no Pydantic body model), so FastAPI's default 422 never runs. The 400/422 split is exact by construction.
+  - Run: `uv run python -m uvicorn mortgage.api.app:app --port 8000`. Set `MORTGAGE_CORS_ORIGINS` (comma-separated; default `http://localhost:5173`, the Vite dev server; `*` is refused at startup).
+  - `tests/api/test_api.py`:
+    - Every response is checked against the contract (status documented, Content-Type, body valid against the schema).
+    - Every contract request example is run end to end.
+    - All malformed cases → 400, including `"\ud800"`, invalid UTF-8, duplicate keys and `NaN`. Error bodies never echo values.
+    - 413 is tested both on Content-Length and on a chunked body; 415 and 500 are tested; CORS is tested allowed and refused.
+    - A 600-request seeded fuzz test checks that every response conforms.
+  - **Backend: 225 passed** (deprecations as errors). Real-server smoke test with curl: 200/422/400/413/415/CORS/openapi all as documented, and the server log was empty.
+  - **Hand mutation check:** 19 API mutations, all caught, each by ≥ 2 tests. One redundant guard (`parse_constant` for `NaN`) was removed, because the string check already rejects it.
+  - Dependencies, pinned exactly:
+    - Runtime: `fastapi` 0.159.1, `uvicorn` 0.54.0, `pyyaml` 6.0.3.
+    - Test client: `httpx2` 2.16.0, because Starlette 1.9 deprecates `httpx`.
+  - **Not used: schemathesis.** Windows Application Control blocks its native `jsonschema_rs` DLL, so it was replaced by the per-response contract check and the fuzz test.
+  - **Not implemented: rate limiting (`429`).** The contract makes it optional and leaves the policy to configuration. It needs a decision on the limits and, once deployed, on whether a proxy handles it. Carried over to Phase 8.
+
 ## Next Steps
-1. **The author approves `api/openapi.yaml`** (the Phase 3 "done when").
-2. V2, **Phase 4 — backend API**: FastAPI app in `backend/mortgage/api/`, implementing `api/openapi.yaml` exactly.
-   - Add problem+json handlers (400/413/415/500), serve the YAML as the app's OpenAPI, enforce the 1 KiB body limit and a CORS allowlist.
-   - API tests for every status code, including `{"loanAmount":"\ud800"}` → 400.
-   - Extend the architecture guard with an `api` layer.
+1. V2, **Phase 5 — frontend**: Vite + vanilla JS in `frontend/`.
+   - A form with three fields (`maxlength="100"`), errors shown under each field, and a result view.
+   - Port V1 M5/M6 (formatting `1 234,57 €`, labels, messages, `shouldShowFinalPayment`) and tests 62–79 to Vitest.
+   - Handle unknown codes and statuses with a generic message (contract `info.description`).
+   - An API client unit-tested against a mock; Playwright e2e against the real backend.
+2. Before Phase 8: decide the rate-limit policy (`429`).
 
 Open for Phase 7: the FR-5 extra-payment questions in `docs/v2/01-functional.md` §2.2.
 

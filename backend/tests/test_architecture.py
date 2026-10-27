@@ -2,7 +2,7 @@
 
 Reads every import in mortgage/, checks it against an explicit allow-list per layer,
 checks that the core layers perform no I/O, and checks the import graph for cycles.
-Phase 4 (api/) and Phase 6 (persistence/) add their layers to these tables.
+Phase 4 added api/; Phase 6 (persistence/) adds its layer to these tables.
 """
 import ast
 from pathlib import Path
@@ -14,21 +14,28 @@ LAYER_IMPORTS: dict[str, list[str]] = {
     'domain': ['domain.types'],
     'input': ['domain.types'],
     'app': ['domain.*', 'input.*'],
+    'api': ['app.*', 'domain.types'],  # Phase 4: HTTP only; never calls domain/input directly
 }
 
 # The only allowed imports inside one layer, besides domain.types.
 INTRA_LAYER_IMPORTS: dict[str, list[str]] = {
     'input.validation': ['input.parsing'],
+    'api.app': ['api.body_limit', 'api.problems', 'api.request'],
+    'api.body_limit': ['api.problems'],
 }
 
-# Standard-library and third-party modules each layer may import. Nothing here does I/O.
+# Standard-library and third-party modules each layer may import.
 LAYER_PACKAGES: dict[str, set[str]] = {
     'domain': {'__future__', 'dataclasses', 'decimal', 'typing'},
     'input': {'__future__', 'dataclasses', 'decimal', 're', 'typing'},
     'app': {'__future__', 'dataclasses', 'typing'},
+    'api': {'__future__', 'http', 'json', 'os', 'pathlib', 'typing', 'fastapi', 'starlette', 'yaml'},
 }
 
-# Built-in functions that do I/O; forbidden in every layer listed above.
+# The core layers do no I/O; only api (and later persistence) may.
+CORE_LAYERS = {'domain', 'input', 'app'}
+
+# Built-in functions that do I/O; forbidden in the core layers.
 IO_BUILTINS = {'open', 'print', 'input', 'exec', 'eval', '__import__'}
 
 
@@ -94,6 +101,8 @@ def test_architecture_dependency_direction():
 def test_architecture_domain_has_no_io():
     violations = []
     for mod_id, tree in source_modules().items():
+        if layer_of(mod_id) not in CORE_LAYERS:
+            continue
         for node in ast.walk(tree):
             if isinstance(node, ast.Name) and node.id in IO_BUILTINS:
                 violations.append(f'{mod_id}: {node.id}')
