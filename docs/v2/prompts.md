@@ -173,3 +173,25 @@ Prompts 21–26 (the V2 plan, the Python setup and decision D7) are logged in `d
   - Removed one vacuous test.
 - **Manual check in the built-in browser:** results, errors, kept values, no horizontal scroll at 375 px, and no JS errors.
 - Added `.claude/launch.json` (backend + frontend previews), `frontend/README.md`, and Playwright output folders to `.gitignore`. Updated `docs/handoff.md`. Committed as "feat: web frontend calling the API (Phase 5)".
+
+## Prompt 36 — Phase 6: Supabase (new project)
+
+### Prompt
+
+> Create a new one
+
+### Output
+
+- D11 = a new project. The organization (the author's only one) is on the free plan. Created `hypotekarna-kalkulacka` in `eu-central-1`: quoted $0, no cost confirmation needed, status ACTIVE_HEALTHY. The existing `PDA-1` (inactive) was not touched.
+- Migration `create_calculations` (version `20261027221257`): the plan §4 table plus CHECK constraints for the ranges, `number_of_payments ≤ term × 12` and `interest = paid − loan`. RLS on with no policies; all privileges revoked from `anon` and `authenticated`.
+  - Verified: two bad rows rejected, `anon` → permission denied, 0 rows.
+  - Security advisor: only INFO "RLS enabled, no policy" (intended).
+- Checked in Supabase's docs (search results only, not the full text) how secret keys are sent: in the `apikey` header only.
+- **Red:** wrote `tests/persistence/test_supabase_repository.py` (mock transport), new API tests (fake repository), `tests/conftest.py` (no test reaches the real DB unless marked `live`) and `tests/integration/test_supabase_live.py` (skipped without a key). They failed with `No module named 'mortgage.persistence'`.
+- **Green:** `mortgage/persistence/repository.py`; `api/app.py` saves through `save_best_effort` (D5); `Calculated` now carries the validated `loan` → 267 passed.
+- Hand mutation check: 17 mutations, all caught. Second guards were added until each rule fails ≥ 2 tests → **283 passed, 1 skipped**.
+- `httpx2` moved to runtime dependencies; `live` marker registered.
+- The architecture guard has a `persistence` layer.
+- Added `backend/.env.example`, `supabase/README.md`, and README, plan and handoff updates.
+- **Not done:** the live check. It needs the project's secret key, which only the author can copy from the dashboard: the Supabase MCP exposes publishable keys only, and secret values are not handled by the assistant.
+- Committed as "feat: save calculations in Supabase (Phase 6)".

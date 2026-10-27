@@ -1,18 +1,18 @@
 [project]
 name = "mortgage-backend"
 version = "0.1.0"
-description = "V2 mortgage calculator backend: parsing, validation, calculation and HTTP API"
+description = "V2 mortgage calculator backend: parsing, validation, calculation, HTTP API and persistence"
 requires-python = ">=3.14"
 # Exact versions (docs/v1/06-retro.md §6.3).
 dependencies = [
     "fastapi==0.159.1",
+    "httpx2==2.16.0",
     "pyyaml==6.0.3",
     "uvicorn==0.54.0",
 ]
 
 [dependency-groups]
 dev = [
-    "httpx2==2.16.0",
     "jsonschema==4.26.0",
     "openapi-schema-validator==0.9.0",
     "openapi-spec-validator==0.9.0",
@@ -27,3 +27,6 @@ package = false
 pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib"
+markers = [
+    "live: talks to the real Supabase project; skipped unless SUPABASE_URL and SUPABASE_SECRET_KEY are set",
+]

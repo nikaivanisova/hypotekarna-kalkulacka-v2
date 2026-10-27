@@ -2,7 +2,7 @@
 
 Reads every import in mortgage/, checks it against an explicit allow-list per layer,
 checks that the core layers perform no I/O, and checks the import graph for cycles.
-Phase 4 added api/; Phase 6 (persistence/) adds its layer to these tables.
+Phase 4 added api/; Phase 6 added persistence/.
 """
 import ast
 from pathlib import Path
@@ -14,7 +14,8 @@ LAYER_IMPORTS: dict[str, list[str]] = {
     'domain': ['domain.types'],
     'input': ['domain.types'],
     'app': ['domain.*', 'input.*'],
-    'api': ['app.*', 'domain.types'],  # Phase 4: HTTP only; never calls domain/input directly
+    'api': ['app.*', 'domain.types', 'persistence.*'],  # HTTP only; never calls domain/input directly
+    'persistence': ['domain.types'],  # Phase 6: stores results; knows nothing of HTTP routes or rules
 }
 
 # The only allowed imports inside one layer, besides domain.types.
@@ -29,10 +30,11 @@ LAYER_PACKAGES: dict[str, set[str]] = {
     'domain': {'__future__', 'dataclasses', 'decimal', 'typing'},
     'input': {'__future__', 'dataclasses', 'decimal', 're', 'typing'},
     'app': {'__future__', 'dataclasses', 'typing'},
-    'api': {'__future__', 'http', 'json', 'os', 'pathlib', 'typing', 'fastapi', 'starlette', 'yaml'},
+    'api': {'__future__', 'http', 'json', 'logging', 'os', 'pathlib', 'typing', 'fastapi', 'starlette', 'yaml'},
+    'persistence': {'__future__', 'logging', 'os', 'typing', 'uuid', 'httpx2'},
 }
 
-# The core layers do no I/O; only api (and later persistence) may.
+# The core layers do no I/O; only api and persistence may.
 CORE_LAYERS = {'domain', 'input', 'app'}
 
 # Built-in functions that do I/O; forbidden in the core layers.

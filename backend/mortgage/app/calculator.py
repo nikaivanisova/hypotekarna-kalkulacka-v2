@@ -6,12 +6,13 @@ Pure and synchronous; no I/O. Presentation (labels, messages) belongs to the fro
 from dataclasses import dataclass
 
 from mortgage.domain.calculation import calculate_mortgage
-from mortgage.domain.types import Invalid, MortgageResult, RawLoanInput, ValidationError
+from mortgage.domain.types import Invalid, LoanInput, MortgageResult, RawLoanInput, ValidationError
 from mortgage.input.validation import validate_loan_input
 
 
 @dataclass(frozen=True)
 class Calculated:
+    loan: LoanInput  # the validated input, which FR-4 saves with the result
     result: MortgageResult
 
 
@@ -28,4 +29,4 @@ def run_calculator(raw: RawLoanInput) -> CalculatorOutcome:
     validation = validate_loan_input(raw)
     if isinstance(validation, Invalid):
         return Rejected(validation.errors)
-    return Calculated(calculate_mortgage(validation.value))
+    return Calculated(validation.value, calculate_mortgage(validation.value))

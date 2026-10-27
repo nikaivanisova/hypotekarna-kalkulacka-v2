@@ -102,6 +102,7 @@ alter table public.calculations enable row level security;
 ```
 
 - `numeric`, never `float`. Values are stored already rounded (the API output), inputs as validated values.
+- As applied in Phase 6 (`supabase/migrations/20261027221257_create_calculations.sql`), the table also has CHECK constraints that mirror the V1 rules, and all privileges are revoked from `anon` and `authenticated`.
 - Supabase keys live only in `backend/.env` (gitignored). The frontend never talks to Supabase directly in this plan (decision D4).
 - Migrations are files in `supabase/migrations/`, applied with the Supabase CLI; a local Supabase stack is used for development and tests.
 - Phase 7 adds `extra_payments (id, calculation_id → calculations.id, month, amount)`.

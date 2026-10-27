@@ -1,9 +1,11 @@
 """The HTTP API (Phase 4): implements api/openapi.yaml exactly.
 
-Run locally:  uv run python -m uvicorn mortgage.api.app:app --port 8000
+Run locally:  uv run --env-file .env python -m uvicorn mortgage.api.app:app --port 8000
 Settings (environment):
     MORTGAGE_CORS_ORIGINS  comma-separated allowed origins (default: the Vite dev server)
+    SUPABASE_URL, SUPABASE_SECRET_KEY  where calculations are saved (mortgage/persistence; optional)
 """
+import logging
 import os
 from pathlib import Path
 
@@ -16,9 +18,12 @@ from mortgage.api.body_limit import BodySizeLimitMiddleware
 from mortgage.api.problems import install_problem_handlers, problem
 from mortgage.api.request import RequestError, parse_calculation_request
 from mortgage.app.calculator import Rejected, run_calculator
+from mortgage.persistence.repository import CalculationRepository, repository_from_env
 
 CONTRACT_PATH = Path(__file__).resolve().parents[3] / 'api' / 'openapi.yaml'
 DEFAULT_CORS_ORIGINS = ['http://localhost:5173']
+
+log = logging.getLogger(__name__)
 
 
 def cors_origins_from_env() -> list[str]:
@@ -28,10 +33,20 @@ def cors_origins_from_env() -> list[str]:
     return [origin.strip() for origin in value.split(',') if origin.strip()]
 
 
-def create_app(cors_origins: list[str] | None = None) -> FastAPI:
+async def save_best_effort(repository: CalculationRepository, outcome) -> str | None:
+    """D5: a failed save never fails the request; the result is returned with id null."""
+    try:
+        return await repository.save(outcome.loan, outcome.result)
+    except Exception as error:  # noqa: BLE001 — any repository bug must not turn a result into a 500
+        log.warning('calculation not saved: %s', type(error).__name__)
+        return None
+
+
+def create_app(cors_origins: list[str] | None = None, repository: CalculationRepository | None = None) -> FastAPI:
     origins = cors_origins if cors_origins is not None else cors_origins_from_env()
     if '*' in origins:
         raise ValueError('CORS must list the frontend origin(s); "*" is not allowed (api/openapi.yaml).')
+    repository = repository if repository is not None else repository_from_env()
 
     app = FastAPI(title='Mortgage Calculator API', redoc_url=None)
     contract = yaml.safe_load(CONTRACT_PATH.read_text(encoding='utf-8'))
@@ -59,7 +74,7 @@ def create_app(cors_origins: list[str] | None = None) -> FastAPI:
                                 status_code=422)
         r = outcome.result
         return JSONResponse({
-            'id': None,  # persistence arrives in Phase 6
+            'id': await save_best_effort(repository, outcome),
             'numberOfPayments': r.number_of_payments,
             'regularPayment': str(r.regular_payment),
             'finalPayment': str(r.final_payment),

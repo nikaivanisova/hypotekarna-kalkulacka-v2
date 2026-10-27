@@ -188,13 +188,29 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
     - Playwright uses `channel: 'msedge'`; no browser download, and Application Control allows Edge.
     - In dev, Vite proxies `/api` to the backend, so the page and the API share one origin.
 
+- **Phase 6 built (Prompt 36); the live check is waiting for the author's secret key:**
+  - **D11 decided:** a **new** Supabase project, `hypotekarna-kalkulacka` (id `rncaqhekknjdivkpadkw`, `eu-central-1`), in the author's only organization (free plan). It was created at $0 and is used as the dev project (no local stack and no Docker). The author's other project, `PDA-1`, is inactive and was not touched.
+  - **Migration** `20261027221257_create_calculations` (applied with the Supabase MCP; file in `supabase/migrations/`). It creates the plan §4 table plus CHECK constraints for the input ranges and the cross-column rules.
+  - RLS is on with no policies, and all privileges are revoked from `anon` and `authenticated`.
+    - Verified: a row with interest off by one cent, and a row with 361 payments on a 30-year loan, are both rejected; `set role anon` → permission denied; 0 rows.
+    - Security advisor: only INFO "RLS enabled, no policy", which is intended.
+  - **`backend/mortgage/persistence/repository.py`:**
+    - `SupabaseRepository` posts to `/rest/v1/calculations?select=id`, with the secret key in the `apikey` header only (Supabase docs); money as strings; 3 s timeout.
+    - It returns the UUID or `None` and never raises; the key is never logged and never shown by `repr`.
+    - `repository_from_env()` gives `NullRepository` when not configured, and refuses half a configuration, a non-https URL or a non-`sb_secret_` key.
+  - `api/app.py` saves through `save_best_effort` (D5: any failure → `id: null`, still 200). `app/calculator.py`'s `Calculated` now also carries the validated `loan`.
+  - **Tests: 283 passed, 1 skipped** (the live test).
+    - `tests/conftest.py` removes the `SUPABASE_*` variables from every test that is not marked `live`, so the suite can never write to the real database.
+    - Hand mutation check: 17 mutations, all caught by ≥ 2 tests.
+    - The architecture guard has a `persistence` layer (it may import only `domain.types`; `api` may import it).
+  - `httpx2` is now a runtime dependency.
+  - Added `backend/.env.example` (contains the URL; the key is empty), `supabase/README.md`, and the plan §4 note.
+
 ## Next Steps
-1. V2, **Phase 6 — Supabase** (plan §4):
-   - The `calculations` migration in `supabase/migrations/`, RLS on, no public policies.
-   - `backend/mortgage/persistence/`; `POST` saves and returns `id` (still `null` if saving fails, D5).
-   - **Decision D11 first:** use an existing Supabase project or create a new one.
-   - Also decide whether development uses a local Supabase stack (needs Docker and the Supabase CLI) or a dedicated dev project.
-2. Before Phase 8: decide the rate-limit policy (`429`).
+1. **The author adds the secret key:** copy `backend/.env.example` to `backend/.env` and paste `SUPABASE_SECRET_KEY` from Dashboard → Project Settings → API Keys.
+   - Then run `uv run --env-file .env python -m pytest -m live` in `backend/`, and save one calculation from the web page and check the row.
+2. Before Phase 8: decide the rate-limit policy (`429`). With FR-4 saving every valid request, it matters more now.
+3. Phase 7 (extra payments): first answer the FR-5 questions in `docs/v2/01-functional.md` §2.2.
 
 Open for Phase 7: the FR-5 extra-payment questions in `docs/v2/01-functional.md` §2.2.
 

@@ -312,6 +312,65 @@ def test_api_cors_origins_come_from_the_environment(monkeypatch):
     assert 'access-control-allow-origin' not in preflight(env_client, FRONTEND).headers
 
 
+# --- Phase 6: saving (FR-4, D5) ----------------------------------------------------------------
+
+SAVED_ID = '6f1c2d3e-4b5a-4c6d-8e7f-001122334455'
+
+
+class FakeRepository:
+    def __init__(self, returns=SAVED_ID, raises=None):
+        self.calls = []
+        self.returns = returns
+        self.raises = raises
+
+    async def save(self, loan, result):
+        self.calls.append((loan, result))
+        if self.raises:
+            raise self.raises
+        return self.returns
+
+
+def client_with(repository) -> TestClient:
+    return TestClient(create_app(cors_origins=[FRONTEND], repository=repository), raise_server_exceptions=False)
+
+
+@pytest.mark.parametrize('saved_id', [SAVED_ID, '00000000-0000-4000-8000-000000000001'])
+def test_api_saves_a_successful_calculation_and_returns_its_id(saved_id):
+    repository = FakeRepository(returns=saved_id)
+    body = conforms(client_with(repository).post(CALC, json=VALID))
+    assert body['id'] == saved_id
+    [(loan, result)] = repository.calls
+    assert (str(loan.principal), str(loan.annual_rate_percent), loan.term_years) == ('100000', '3.5', 30)
+    assert str(result.regular_payment) == '449.04'
+
+
+@pytest.mark.parametrize('body', [{'loanAmount': 'abc'}, {'loanamount': '1'}])
+def test_api_saves_nothing_for_invalid_or_malformed_requests(body):
+    repository = FakeRepository()
+    response = client_with(repository).post(CALC, json=body)
+    assert response.status_code in (400, 422)
+    assert repository.calls == []
+
+
+def test_api_returns_the_result_with_null_id_when_saving_fails():
+    body = conforms(client_with(FakeRepository(returns=None)).post(CALC, json=VALID))
+    assert body['id'] is None
+    assert body['regularPayment'] == '449.04'
+
+
+@pytest.mark.parametrize('error', [RuntimeError('db down'), ConnectionError('refused'), ValueError('bad')])
+def test_api_returns_the_result_with_null_id_when_the_repository_raises(error):
+    """D5: saving is best effort, even if a repository breaks its own 'never raises' promise."""
+    response = client_with(FakeRepository(raises=error)).post(CALC, json=VALID)
+    body = conforms(response)
+    assert response.status_code == 200
+    assert body['id'] is None
+
+
+def test_api_without_supabase_settings_saves_nothing():
+    assert conforms(TestClient(create_app(cors_origins=[FRONTEND])).post(CALC, json=VALID))['id'] is None
+
+
 # --- Seeded fuzz: every response conforms, whatever the body -----------------------------------
 
 
