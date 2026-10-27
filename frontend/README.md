@@ -1,5 +1,38 @@
 # Frontend (JavaScript)
 
-The web page: three input fields, results and error messages. It calls the backend API and does no financial math.
+The web page: three input fields, the results and the error messages. It calls the backend API (`api/openapi.yaml`) and does no financial math: it sends the text exactly as typed and only formats the amounts it receives.
 
-Built in **Phase 5** with Vite + vanilla JavaScript, Vitest and Playwright.
+Vite + vanilla JavaScript; Vitest (unit, jsdom) and Playwright (end to end, in the installed Microsoft Edge).
+
+## Run
+
+Start the backend first (see `backend/README.md`), then:
+
+```bash
+cd frontend
+npm.cmd install
+npm.cmd run dev
+```
+
+Open http://localhost:5173. Vite forwards `/api` to the backend (`MORTGAGE_API_URL`, default `http://localhost:8000`), so the page and the API share one origin, as in the contract (`servers: /`).
+
+## Test
+
+```bash
+npm.cmd test
+npm.cmd run e2e
+```
+
+`npm.cmd run e2e` starts its own backend (port 8766) and Vite (port 5174). Playwright uses `channel: 'msedge'`, so no browser download is needed.
+
+## Modules
+
+| Module | V1 | Rule |
+|---|---|---|
+| `src/formatting.js` | M5 | `"1234.57"` → `1 234,57 €`. Accepts only canonical Money strings and never rounds. |
+| `src/presentation.js` | M6 | V1 texts, labels and order. `shouldShowFinalPayment` compares strings. Unknown codes and fields get a generic message. |
+| `src/api-client.js` | — | `calculate(raw)` → `result` / `invalid` / `failure`; checks the response shape; never rejects. |
+| `src/page.js` | (M8) | The form; errors under each field (`aria-invalid`); one general error; `maxlength="100"`; one request at a time. |
+| `src/main.js` | (M9) | Wires the page to the client (`VITE_API_BASE_URL`, default same origin). |
+
+`tests/unit/no-money-math.test.js` fails if `src/` uses `parseFloat`, `Number(`, `toFixed`, `Math.`, `Intl` or `BigInt`.

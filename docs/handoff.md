@@ -165,12 +165,35 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
   - **Not used: schemathesis.** Windows Application Control blocks its native `jsonschema_rs` DLL, so it was replaced by the per-response contract check and the fuzz test.
   - **Not implemented: rate limiting (`429`).** The contract makes it optional and leaves the policy to configuration. It needs a decision on the limits and, once deployed, on whether a proxy handles it. Carried over to Phase 8.
 
+- **Phase 5 complete (Prompt 35):** `frontend/`, built with Vite 8.3.5 + vanilla JS, tested with Vitest 5.0.5 (jsdom 30.1.3) and Playwright 1.64.1. All versions are pinned exactly.
+  - **Modules:**
+    - `formatting.js` (M5): accepts only canonical Money strings and never rounds.
+    - `presentation.js` (M6): V1 texts; `shouldShowFinalPayment` compares strings; unknown codes and fields get a generic message.
+    - `api-client.js`: result / invalid / failure; checks the response shape; never rejects.
+    - `page.js`: per-field errors with `aria-invalid`, one general error, `maxlength="100"`, one request at a time.
+    - `main.js`.
+  - **Tests:**
+    - **66 unit tests:** M5/M6 tests 62–79 ported. Tests 66–67 (padding and rounding) became "non-canonical amounts are rejected", because the frontend must not round. Plus client, page and a no-money-arithmetic source guard.
+    - **9 Playwright e2e tests in the installed Edge against the real backend:** browser versions of V1 tests 89–91, plus early termination, all fields missing, exact text sent, the Enter key, backend unreachable and `maxlength`.
+  - **Hand mutation check:** 18 mutations. 17 are caught, each by ≥ 2 guards (unit or e2e). The one that survives ("other statuses treated as 422") is equivalent: problem bodies have no `errors` list, so they are a failure either way.
+    - The check showed one real gap, an empty Result panel staying visible after a failure; now tested.
+    - It also showed one vacuous test, "renders text not HTML", which could not fail; removed.
+  - **Manual check in the built-in browser (both servers through `.claude/launch.json`):**
+    - The standard loan shows the 4 lines.
+    - Invalid input shows messages under the fields, keeps the values and hides the old result.
+    - At 375 px there is no horizontal scroll.
+    - No JS errors; the only console line is the browser's network log for the expected 422.
+  - `npm.cmd run build` works (5.6 kB JS).
+  - **Windows notes:**
+    - Playwright uses `channel: 'msedge'`; no browser download, and Application Control allows Edge.
+    - In dev, Vite proxies `/api` to the backend, so the page and the API share one origin.
+
 ## Next Steps
-1. V2, **Phase 5 — frontend**: Vite + vanilla JS in `frontend/`.
-   - A form with three fields (`maxlength="100"`), errors shown under each field, and a result view.
-   - Port V1 M5/M6 (formatting `1 234,57 €`, labels, messages, `shouldShowFinalPayment`) and tests 62–79 to Vitest.
-   - Handle unknown codes and statuses with a generic message (contract `info.description`).
-   - An API client unit-tested against a mock; Playwright e2e against the real backend.
+1. V2, **Phase 6 — Supabase** (plan §4):
+   - The `calculations` migration in `supabase/migrations/`, RLS on, no public policies.
+   - `backend/mortgage/persistence/`; `POST` saves and returns `id` (still `null` if saving fails, D5).
+   - **Decision D11 first:** use an existing Supabase project or create a new one.
+   - Also decide whether development uses a local Supabase stack (needs Docker and the Supabase CLI) or a dedicated dev project.
 2. Before Phase 8: decide the rate-limit policy (`429`).
 
 Open for Phase 7: the FR-5 extra-payment questions in `docs/v2/01-functional.md` §2.2.

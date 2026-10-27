@@ -151,3 +151,25 @@ Prompts 21–26 (the V2 plan, the Python setup and decision D7) are logged in `d
 - All 19 API mutations caught by ≥ 2 tests. The two Content-Length tests were split into parametrized cases, so each rule visibly has two tests.
 - **Not implemented:** rate limiting (`429`, optional in the contract). The limits are a policy decision, carried over to Phase 8.
 - Updated `backend/README.md`, `docs/handoff.md` and `03-api-review.md`. Committed as "feat: FastAPI backend implementing the API contract (Phase 4)".
+
+## Prompt 35 — Phase 5: frontend
+
+### Prompt
+
+> Start Phase 5
+
+### Output
+
+- `frontend/`: Vite 8.3.5 + vanilla JS; Vitest 5.0.5 + jsdom 30.1.3; Playwright 1.64.1 (all pinned exactly). Playwright drives the installed Edge (`channel: 'msedge'`) instead of downloading a browser.
+- **Red:** wrote 5 unit test files first (formatting, presentation, api-client, page, no-money-math); all 5 failed because `src/` did not exist.
+- **Green:** `src/formatting.js`, `presentation.js`, `api-client.js`, `page.js`, `main.js`, `styles.css`, `index.html` → all pass.
+- Ported V1 tests 62–79 with their names and texts. Tests 66–67 (padding and rounding) became "non-canonical amounts are rejected", because the frontend must not round (CLAUDE.md, contract).
+- New behaviour from the contract:
+  - Unknown codes give "<Label> is invalid."; unknown fields and other statuses give one general message.
+  - Response shapes are checked; the client never rejects; one request at a time; `maxlength="100"`.
+- 9 Playwright e2e tests against the real backend (browser versions of V1 tests 89–91 plus V2 cases) → 9 passed.
+- **Hand mutation check:** 18 mutations; 17 caught by ≥ 2 guards, 1 equivalent.
+  - Added tests: hide an empty Result panel after a failure, prototype names as codes, second cases for single guards.
+  - Removed one vacuous test.
+- **Manual check in the built-in browser:** results, errors, kept values, no horizontal scroll at 375 px, and no JS errors.
+- Added `.claude/launch.json` (backend + frontend previews), `frontend/README.md`, and Playwright output folders to `.gitignore`. Updated `docs/handoff.md`. Committed as "feat: web frontend calling the API (Phase 5)".
