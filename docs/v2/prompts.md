@@ -458,3 +458,32 @@ The contract-change review and the mutation runs reported back during Prompt 47;
 ### Output
 
 - Answered from `docs/handoff.md` Next Steps and `docs/v2/06-retro.md` §4: optional branch protection, deployment when wanted, V3 planning, the `no-plan/` decision. Committed locally (not pushed).
+
+
+## Prompt 53 — Is everything from the plan done?
+
+### Prompt
+
+> so everything from the starting plan is done?
+
+### Output
+
+- Checked `00-refactor-plan.md` §6: phases 0–8 all meet their "done when".
+- Deviations listed:
+  - import-linter replaced by a custom ast guard;
+  - schemathesis replaced (blocked by Application Control);
+  - a cloud dev project instead of a local Supabase stack (D11, no Docker).
+- Not done:
+  - CI on Windows (risk table);
+  - `GET /calculations/{id}` ("later", outside the phases);
+  - a final hand browser check of extra payments (the e2e tests cover it).
+
+## Prompt 54 — Is everything saved?
+
+### Prompt
+
+> is everything saved?
+
+### Output
+
+- Checked git: the working tree, commits and remote state (see the answer in chat).
