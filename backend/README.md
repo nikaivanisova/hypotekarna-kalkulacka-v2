@@ -8,7 +8,8 @@ Parsing, validation and the mortgage calculation, served over HTTP with FastAPI;
 | 3 | ✅ done | contract tests for `api/openapi.yaml` (`tests/contract/`) |
 | 4 | ✅ done | `mortgage/api/`: FastAPI app implementing `api/openapi.yaml` (`tests/api/`) |
 | 6 | ✅ done | `mortgage/persistence/`: saves each calculation in Supabase (`tests/persistence/`, `tests/integration/`) |
-| 7 | ✅ done | extra payments: `mortgage/domain/schedule.py`, item validation, API fields, `save_calculation` — 429 tests in total (+2 live) |
+| 7 | ✅ done | extra payments: `mortgage/domain/schedule.py`, item validation, API fields, `save_calculation` |
+| 8 | ✅ done | rate limit (`mortgage/api/rate_limit.py`), CI — 460 tests in total (+2 live) |
 
 ## Run the server
 
@@ -20,6 +21,7 @@ uv run --env-file .env python -m uvicorn mortgage.api.app:app --port 8000
 Settings come from `backend/.env`. Copy `.env.example` and fill in the secret key; the file is gitignored.
 - `SUPABASE_URL` and `SUPABASE_SECRET_KEY`: where calculations are saved. Set both or neither. Without them the API still works and returns `id: null` (D5).
 - `MORTGAGE_CORS_ORIGINS`: the allowed frontend origins (comma-separated; default `http://localhost:5173`; `*` is refused).
+- `MORTGAGE_RATE_LIMIT`: calculations per client IP, `<limit>/<seconds>` (default `30/60`) or `off`. Over the limit → `429` with `Retry-After`.
 
 The contract is served at `/openapi.json` and `/docs`. Without a `.env`, drop `--env-file .env`.
 
@@ -46,6 +48,7 @@ Use `python -m pytest`, not `uv run pytest`: Windows Application Control on the 
 | `api/app.py` | — | Routes; serves `api/openapi.yaml`; CORS allowlist. Imports only `app/*`, `domain/types` and `persistence/*`. |
 | `api/request.py` | — | Strict body reading: object of 3 string-or-null properties plus optional `extraPayments` (≤ 10 closed `{month, amount}` items), ≤ 100 chars per value, no duplicates or lone surrogates → else 400. |
 | `api/problems.py` | — | problem+json for every HTTP error; never echoes request values; no `detail` on 5xx. |
+| `api/rate_limit.py` | — | Per client IP (TCP peer; `X-Forwarded-For` not trusted), sliding window, refused requests do not count; in memory, idle clients dropped. Only `POST /api/v1/calculations`. |
 | `api/body_limit.py` | — | 8 KiB limit before parsing (Content-Length and streamed) → 413. The form's largest body is 7 216 bytes. |
 | `persistence/repository.py` | — | `SupabaseRepository.save()` → row id or `None`. Calls `POST /rest/v1/rpc/save_calculation` with `{"payload": …}` (calculation and extra payments in one transaction), with the secret key in the `apikey` header only; money as strings; 3 s timeout; never raises; never logs the key. `NullRepository` when not configured. |
 
@@ -61,5 +64,6 @@ This saves two calculations (one of them with three extra payments, in one trans
 
 ## Parity checks
 
-- `tests/domain/test_reference_parity.py`: all 6 800 sweep loans equal `tools/reference.py` (exact rationals), cent for cent.
-- `tools/v1_parity.py`: all 6 800 sweep loans equal the V1 TypeScript code in `legacy/cli` (run by hand).
+- `tests/domain/test_reference_parity.py`: all 6 800 V1 sweep loans equal `tools/reference.py` (exact rationals), cent for cent.
+- `tests/domain/test_extra_reference_parity.py`: 803 extra-payment loans (the reference's strata) equal `calc_extra`, statuses included.
+- V1 parity with the TypeScript code (`tools/v1_parity.py`, 6 800 loans, 0 mismatches) was run for the last time in Phase 8, before V1 was removed; both are at git tag `v1-final`.

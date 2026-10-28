@@ -1,6 +1,6 @@
 # V2 Refactor Plan — From CLI to Frontend / API / Backend / Supabase
 
-Status: **Approved** (2026-10-22). All decisions in §8 are made: the author accepted the recommendations for D1–D11, and D7 was decided separately.
+Status: **Approved** (2026-10-22); **all phases 0–8 complete** (2026-10-28, `06-retro.md`). All decisions in §8 are made: the author accepted the recommendations for D1–D11, and D7 was decided separately.
 
 ## 1. Goal
 
@@ -167,5 +167,5 @@ Phases 2 and 3 can run in parallel; 5 can start on a mock server as soon as 3 is
 | D7 | Extra payments (*mimoriadna splátka*)? | **In scope (2026-10-22, Prompt 28): an extra payment shortens the term; the regular payment does not change.** Still open, for the Phase 7 spec: one-time or recurring? Fee? Limits (min/max amount, which months)? Suggested first cut: one-time payments at a given month, no fee. |
 | D8 | UI language: Slovak, English, or both? | **English**, as in V1 (01 §3.5), so the V1 UI texts and their tests carry over unchanged. All texts stay in one messages table, so switching to Slovak later is a one-file change. |
 | D9 | Users / login, or anonymous calculations? | **Anonymous** for V2; auth later. |
-| D10 | Hosting (later): e.g. frontend on Netlify/Vercel, backend on Render/Fly, Supabase cloud. | Decide at Phase 8; develop locally until then. |
+| D10 | Hosting (later): e.g. frontend on Netlify/Vercel, backend on Render/Fly, Supabase cloud. | **Decided in Phase 8 (Prompt 49): local only for now.** Deployment notes are in `README.md`. |
 | D11 | Use an existing Supabase project or create a new one? | **Decide at Phase 6:** use an existing project if the author names one, otherwise create a new one. Phases 1–5 need no Supabase. |

@@ -230,15 +230,26 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
     - Persistence: 10 mutations.
   - **Not verified by hand in the browser:** the pane was hidden at the end. The e2e tests drive the same page flows in Edge.
 
-## Next Steps
-1. Before Phase 8: decide the rate-limit policy (`429`). Every valid request now writes a row, so this matters more.
-2. **Phase 8 — clean-up & CI** (plan §6):
-   - Run `tools/v1_parity.py` once more, then delete `legacy/` (D6).
-   - GitHub Actions: pytest, Vitest, `tools/reference.py`, contract tests, Playwright.
-   - Decide hosting (D10) and the `429` policy.
-   - V2 retrospective.
-   - Note: `tools/reference.py` now takes about 100 s, so CI may run the extra sweep with fewer loans.
+- **Phase 8 complete (Prompt 49): clean-up, rate limit, CI, retrospective. V2 is complete.**
+  - **Decisions:** D10 = **local only for now** (deployment notes in `README.md`); rate limit = **a simple limit in the app**.
+  - **V1 removed:** a final `tools/v1_parity.py` run gave 6 800 loans, 0 mismatches, and V1's own tests 112/112. Git tag **`v1-final`** (local, not pushed) marks the last commit with `legacy/`. `legacy/` and `tools/v1_parity.py` were deleted, and the source comments now point to the tag.
+  - **Rate limit:** `backend/mortgage/api/rate_limit.py`.
+    - Per client IP, a sliding window, 30 per 60 s by default (`MORTGAGE_RATE_LIMIT`), only on `POST /calculations`.
+    - 429 problem+json with `Retry-After`, before the body is read; refused requests do not count; CORS headers are set.
+    - The tests switch it off by default (`tests/conftest.py`) and test it with a fake clock.
+    - Hand mutation check: 10 mutations, all caught by ≥ 2 tests. One test was too weak (its refusals expired together with the first request) and was fixed.
+    - The contract now states the policy.
+  - **CI:** `.github/workflows/ci.yml` with four jobs: backend pytest; `tools/reference.py`; frontend Vitest + build; e2e (Playwright Chromium against the real backend).
+    - `playwright.config.js` reads `PLAYWRIGHT_CHANNEL` and picks the `.venv/bin` or `.venv\Scripts` Python.
+    - **CI has not run yet: nothing is pushed.**
+  - **Retrospective:** `docs/v2/06-retro.md`.
+  - Tests: backend **460 passed** (+2 live); frontend **133** unit + **13** e2e (Edge).
 
+## Next Steps
+1. **Push `master` and the tag `v1-final` to GitHub** (author's go-ahead), then check that the first CI run passes on Linux.
+2. When V2 should be public: follow the deployment notes in `README.md` (one origin, secrets in the host, rate limit behind the proxy).
+3. V3: see `docs/v2/06-retro.md` §4 (measure time and tokens, re-review fixes as a whole, decide the V1 Minor findings).
+4. Decide whether to keep the `no-plan/` experiment from V1 (still uncommitted).
 
 V1 is complete. Before or at the start of V2:
 1. Confirm AC-3 by hand: run `npm start` (`npm.cmd start` in PowerShell), type `100 000`, `3,5` and `30`, then check the 4 result lines and exit code 0.

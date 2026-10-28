@@ -386,3 +386,32 @@ Asked one question at a time, each with a recommended option:
 ## Prompt 48 — (background reviews)
 
 The contract-change review and the mutation runs reported back during Prompt 47; no user prompt.
+
+
+## Prompt 49 — Phase 8: clean-up and CI
+
+### Prompt
+
+> Start Phase 8
+
+### Decisions (asked)
+
+| Question | Answer |
+|---|---|
+| D10: where V2 runs | Local only for now (recommended) |
+| The 429 rate limit | A simple limit in the app (recommended) |
+
+### Output
+
+- The repo has a GitHub remote (`nikaivanisova/hypotekarna-kalkulacka-v2`). Nothing was pushed.
+- **V1 removed:** a final V1 parity run gave 6 800 loans, 0 mismatches, and V1's tests 112/112. Created tag `v1-final` (local). Removed `legacy/` (23 files) and `tools/v1_parity.py`; the source comments now point to the tag.
+- **Rate limit:** `api/rate_limit.py`.
+  - Per IP, a sliding window, 30/60 by default, `MORTGAGE_RATE_LIMIT`, only on `POST /calculations`; 429 with `Retry-After`; refusals do not count; CORS is kept.
+  - The tests were written first but not run red first.
+  - Hand mutation check: 10 mutations. One survived ("refused requests recorded"), which showed a weak test; it was fixed and given a second guard. Finally 10/10 caught by ≥ 2 tests.
+  - The contract text now states the policy. Tests switch the limit off by default; the e2e backend uses `1000/60`.
+- **CI:** `.github/workflows/ci.yml` (backend, reference, frontend, e2e with Chromium). `playwright.config.js` is portable (`PLAYWRIGHT_CHANNEL`, the Python path per OS). The YAML parses, but CI has **not run** (nothing pushed).
+- **Retrospective** `docs/v2/06-retro.md`. Rechecked its own numbers and fixed two before committing: 140 mutations over 9 runs, and 19 Minor review findings.
+- Updated `CLAUDE.md` (V2 complete, `v1-final`, the Windows constraints), the root `README.md` (how to run, deployment notes), the plan status and D10, `backend/README.md` and `docs/handoff.md`.
+- Tests: backend 460 passed (+2 live); frontend 133 + 13 e2e.
+- Committed as "feat: remove V1 legacy CLI, add rate limiting and CI (Phase 8)" and "docs: V2 retrospective and Phase 8 docs".
