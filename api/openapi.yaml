@@ -26,22 +26,27 @@ info:
       field; every other status (`400`, `413`, `415`, `429`, `500`) and a network failure show one
       general error message (01-functional V2 §2.1).
 
-    ## Forward compatibility (Phase 7 adds extra payments)
+    ## Extra payments (Phase 7; docs/v2/04-extra-payments.md)
+
+    - The optional `extraPayments` list holds 0–10 one-time payments. Each shortens the term; the
+      regular payment never changes (D7). Without extra payments, every result is exactly V1's.
+    - Each result item has a `status` (open vocabulary) and the `usedAmount` actually used.
+
+    ## Forward compatibility
 
     - **Responses may gain properties.** Clients MUST ignore response properties they do not know.
       Response schemas are therefore open (no `additionalProperties: false`).
-    - **Error vocabulary may grow.** Clients MUST show a generic message for a `field` or `code`
-      they do not know. Phase 7 adds error codes, and errors for `extraPayments` items will
-      use `field: extraPayments` plus an `index`.
-    - **Requests are closed** (`additionalProperties: false`), so a typo such as `loanamount` is
-      a `400` instead of a silent `required`. Phase 7 adds an optional `extraPayments` array. Until
-      then, sending it is a `400`. The frontend omits `extraPayments` when it is empty, and frontend
-      and backend are deployed together.
+    - **Vocabularies may grow.** Clients MUST show a generic message for a `field`, `code`,
+      `property` or item `status` they do not know.
+    - **Requests are closed** (`additionalProperties: false`, also inside `extraPayments` items), so
+      a typo such as `loanamount` is a `400` instead of a silent `required`. The frontend omits
+      empty extra-payment rows, and frontend and backend are deployed together.
 
     ## Not expressible in OpenAPI (normative for Phase 4)
 
     - **CORS:** only the frontend's origin is allowed (an allowlist from configuration, no `*`).
-    - **Body size:** at most 1 KiB, enforced before the body is parsed; larger → `413`.
+    - **Body size:** at most 8 KiB, enforced before the body is parsed; larger → `413`. The form's
+      largest possible body is 7 216 bytes (23 fields × 100 characters of 3-byte UTF-8; 04 §4.1).
     - **Rate limiting:** the backend may answer `429` with `Retry-After`. The policy itself
       (limits per client) is configuration, set in Phase 4/8.
     - **FastAPI defaults do not conform**; Phase 4 must override them:
@@ -64,9 +69,9 @@ paths:
       operationId: createCalculation
       summary: Calculate a mortgage and save the calculation.
       description: |
-        Validates the three inputs (FR-3); if all are valid, calculates the payment and totals
-        (FR-1, FR-2) and saves the calculation (FR-4). Nothing is calculated or saved when any
-        input is invalid.
+        Validates the three inputs and any extra payments (FR-3, FR-5); if all are valid,
+        calculates the payment and totals (FR-1, FR-2, FR-5) and saves the calculation (FR-4).
+        Nothing is calculated or saved when any input is invalid.
 
         Saving is best effort (D5): when the calculation is not saved, the result is still
         returned, with `id: null`.
@@ -92,6 +97,25 @@ paths:
               severalInvalid:
                 summary: Several invalid fields, one error each, in field order
                 value: { loanAmount: 'abc', annualRate: '25', termYears: '2,5' }
+              withExtraPayments:
+                summary: Extra payments (04 §6 E3); two in the same month add up, the later one is not used
+                value:
+                  loanAmount: '100 000'
+                  annualRate: '3,5'
+                  termYears: '30'
+                  extraPayments:
+                    - { month: '60', amount: '50 000' }
+                    - { month: '60', amount: '50 000' }
+                    - { month: '120', amount: '1 000' }
+              extraPaymentsInvalid:
+                summary: Item errors point at the item (index) and its property
+                value:
+                  loanAmount: '100 000'
+                  annualRate: '3,5'
+                  termYears: '10'
+                  extraPayments:
+                    - { month: '24', amount: '5000' }
+                    - { month: '121', amount: '1,234' }
       responses:
         '200':
           description: All inputs valid; the calculation result.
@@ -108,6 +132,9 @@ paths:
                     finalPayment: '452.02'
                     totalPaid: '161657.38'
                     totalInterest: '61657.38'
+                    monthsSaved: 0
+                    interestSaved: '0.00'
+                    extraPayments: []
                 earlyTermination:
                   value:
                     id: 7a1d9e2f-3b4c-4d5e-8f6a-0b1c2d3e4f50
@@ -116,6 +143,9 @@ paths:
                     finalPayment: '17.97'
                     totalPaid: '6379.35'
                     totalInterest: '5304.20'
+                    monthsSaved: 0
+                    interestSaved: '0.00'
+                    extraPayments: []
                 zeroRate:
                   summary: Not saved (id null, D5)
                   value:
@@ -125,6 +155,24 @@ paths:
                     finalPayment: '83.37'
                     totalPaid: '1000.00'
                     totalInterest: '0.00'
+                    monthsSaved: 0
+                    interestSaved: '0.00'
+                    extraPayments: []
+                withExtraPayments:
+                  summary: The loan is paid off in month 60; Final Payment includes the extra used that month
+                  value:
+                    id: 0b6c1f0e-2a3d-4e5f-9a8b-7c6d5e4f3a21
+                    numberOfPayments: 60
+                    regularPayment: '449.04'
+                    finalPayment: '90146.42'
+                    totalPaid: '116639.78'
+                    totalInterest: '16639.78'
+                    monthsSaved: 300
+                    interestSaved: '45017.60'
+                    extraPayments:
+                      - { month: 60, amount: '50000.00', usedAmount: '50000.00', status: used }
+                      - { month: 60, amount: '50000.00', usedAmount: '39697.38', status: partly_used }
+                      - { month: 120, amount: '1000.00', usedAmount: '0.00', status: after_payoff }
         '400':
           $ref: '#/components/responses/BadRequest'
         '413':
@@ -150,6 +198,12 @@ paths:
                       - { field: loanAmount, code: not_a_number }
                       - { field: annualRate, code: above_max }
                       - { field: termYears, code: not_whole_number }
+                extraPaymentsInvalid:
+                  summary: Month 121 is beyond a 10-year term; the amount has 3 decimals
+                  value:
+                    errors:
+                      - { field: extraPayments, index: 1, property: month, code: above_max }
+                      - { field: extraPayments, index: 1, property: amount, code: too_many_decimals }
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -208,6 +262,26 @@ components:
         termYears:
           $ref: '#/components/schemas/RawInput'
           description: Term in whole years; valid range 1 – 30.
+        extraPayments:
+          description: |
+            0–10 one-time extra payments (04 §2). Absent, `null` and `[]` all mean "none".
+            More than 10 items, a non-array or a malformed item is a `400`.
+          type: [array, 'null']
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/ExtraPaymentInput'
+
+    ExtraPaymentInput:
+      type: object
+      additionalProperties: false
+      description: One extra payment as typed. A missing property means `required` (so `{}` gives two errors).
+      properties:
+        month:
+          $ref: '#/components/schemas/RawInput'
+          description: Month of the loan (1 = first payment), whole number, 1 – term × 12; paid with that month's regular payment.
+        amount:
+          $ref: '#/components/schemas/RawInput'
+          description: Amount in EUR, 0,01 – 1 000 000,00, at most 2 decimals.
 
     Money:
       description: An amount in EUR, already rounded half up to cents by the backend. Never negative.
@@ -218,7 +292,8 @@ components:
     CalculationResult:
       description: Open for additive growth; clients ignore unknown properties.
       type: object
-      required: [id, numberOfPayments, regularPayment, finalPayment, totalPaid, totalInterest]
+      required: [id, numberOfPayments, regularPayment, finalPayment, totalPaid, totalInterest, monthsSaved,
+                 interestSaved, extraPayments]
       properties:
         id:
           description: |
@@ -240,30 +315,75 @@ components:
         finalPayment:
           $ref: '#/components/schemas/Money'
           description: |
-            The last payment, which absorbs all rounding differences. Always > 0.00.
+            The last payment, which absorbs all rounding differences. Always > 0.00. When extra
+            payments pay the loan off, it includes the extra used in that month.
             The frontend shows it only if it differs from `regularPayment` by €0.01 or more.
         totalPaid:
           $ref: '#/components/schemas/Money'
           description: |
-            The sum of all payments made. Without extra payments this is
+            The sum of all payments made, extra payments included. Without extra payments this is
             regularPayment × (numberOfPayments − 1) + finalPayment.
         totalInterest:
           $ref: '#/components/schemas/Money'
           description: totalPaid − loan amount.
+        monthsSaved:
+          description: Payments saved by the extra payments, compared with the same loan without them (0 without extra payments).
+          type: integer
+          minimum: 0
+          maximum: 359
+        interestSaved:
+          $ref: '#/components/schemas/Money'
+          description: Interest saved by the extra payments, compared with the same loan without them. Never negative (04 §3.5).
+        extraPayments:
+          description: One entry per request item, in request order (empty without extra payments).
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/AppliedExtraPayment'
+
+    AppliedExtraPayment:
+      type: object
+      required: [month, amount, usedAmount, status]
+      properties:
+        month:
+          type: integer
+          minimum: 1
+          maximum: 360
+        amount:
+          $ref: '#/components/schemas/Money'
+          description: The validated amount as requested.
+        usedAmount:
+          $ref: '#/components/schemas/Money'
+          description: The part actually used, 0.00 – amount (04 §3.3).
+        status:
+          $ref: '#/components/schemas/ExtraPaymentStatus'
+
+    ExtraPaymentStatus:
+      description: |
+        What happened to one extra payment (04 §3.3). Known values today; clients MUST show a
+        generic note for a value they do not know.
+        - `used`: fully used.
+        - `partly_used`: only part was needed to pay off the loan.
+        - `after_payoff`: not used; the loan was already paid off.
+        - `loan_ends_this_month`: not needed; this month's regular payment ends the loan.
+        - `tiny_balance`: not needed; less than half a cent was still owed after the regular payment.
+        - `covered_by_earlier`: not needed; an earlier extra payment in the same month paid off the loan.
+      type: string
+      examples: [used, partly_used, after_payoff, loan_ends_this_month, tiny_balance, covered_by_earlier]
 
     Field:
       description: |
-        The input an error refers to. Known values today: `loanAmount`, `annualRate`, `termYears`.
-        Phase 7 adds `extraPayments`. Clients MUST handle unknown values with a generic message.
+        The input an error refers to. Known values today: `loanAmount`, `annualRate`, `termYears`,
+        `extraPayments` (with `index` and `property`). Clients MUST handle unknown values with a generic message.
       type: string
-      examples: [loanAmount, annualRate, termYears]
+      examples: [loanAmount, annualRate, termYears, extraPayments]
 
     ValidationErrorCode:
       description: |
         Known values today (V1 01 §3.3). Each input is checked in this order and reports only its
         first failure: `required` → `not_a_number` → `negative` → `not_whole_number` →
-        `too_many_decimals` → `below_min` / `above_max`.
-        Phase 7 adds codes. Clients MUST handle unknown values with a generic message.
+        `too_many_decimals` → `below_min` / `above_max`. Extra-payment items use the same codes.
+        Clients MUST handle unknown values with a generic message.
       type: string
       examples: [required, not_a_number, negative, not_whole_number, too_many_decimals, below_min, above_max]
 
@@ -276,9 +396,23 @@ components:
         code:
           $ref: '#/components/schemas/ValidationErrorCode'
         index:
-          description: Reserved for Phase 7. The position of the `extraPayments` item the error refers to (0-based).
+          description: The position of the `extraPayments` item the error refers to (0-based, in the request).
           type: integer
           minimum: 0
+          maximum: 9
+        property:
+          description: |
+            The item property the error refers to. Known values: `month`, `amount`. Clients show the
+            general message when `index` or `property` is missing or unknown.
+          type: string
+          examples: [month, amount]
+      if:
+        properties:
+          field:
+            const: extraPayments
+        required: [field]
+      then:
+        required: [index, property]
 
     ValidationErrorResponse:
       type: object
@@ -286,7 +420,8 @@ components:
       properties:
         errors:
           description: |
-            At most one error per input, in input order (today: loanAmount, annualRate, termYears).
+            At most one error per (field, index, property): first the V1 fields (loanAmount,
+            annualRate, termYears), then extra-payment items by index, month before amount.
           type: array
           minItems: 1
           items:
@@ -323,7 +458,7 @@ components:
             status: 400
             detail: 'Unknown property: loanamount'
     PayloadTooLarge:
-      description: The body is larger than 1 KiB.
+      description: The body is larger than 8 KiB.
       content:
         application/problem+json:
           schema:

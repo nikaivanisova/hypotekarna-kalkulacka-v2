@@ -104,7 +104,15 @@ MALFORMED = {
     'boolean for a field': b'{"loanAmount": true}',
     'object for a field': b'{"loanAmount": {"value": "1"}}',
     'unknown property': b'{"loanamount": "100000"}',
-    'extraPayments before Phase 7': b'{"loanAmount": "100000", "extraPayments": []}',
+    'extraPayments not an array': b'{"extraPayments": {"month": "1", "amount": "1"}}',
+    'extraPayments as a string': b'{"extraPayments": "none"}',
+    'eleven extra payments': json.dumps({'extraPayments': [{'month': '1', 'amount': '1'}] * 11}).encode(),
+    'extra payment not an object': b'{"extraPayments": ["12:100"]}',
+    'extra payment null item': b'{"extraPayments": [null]}',
+    'unknown property in an item': b'{"extraPayments": [{"month": "1", "amount": "1", "fee": "0"}]}',
+    'number in an item': b'{"extraPayments": [{"month": 12, "amount": "100"}]}',
+    '101 characters in an item': json.dumps({'extraPayments': [{'month': '1', 'amount': '1' * 101}]}).encode(),
+    'lone surrogate in an item': b'{"extraPayments": [{"month": "\\ud800", "amount": "1"}]}',
     'duplicate property': b'{"loanAmount": "1000", "loanAmount": "2000"}',
     'duplicate property, same value': b'{"termYears": "30", "annualRate": "3", "termYears": "30"}',
     'NaN literal': b'{"loanAmount": NaN}',
@@ -159,7 +167,7 @@ def padded(size: int) -> bytes:
 
 def test_api_body_at_the_limit_is_accepted(client):
     body = padded(MAX_BODY_BYTES)
-    assert len(body) == 1024
+    assert len(body) == 8192
     assert post_raw(client, body).status_code == 200
 
 
@@ -169,9 +177,38 @@ def test_api_body_over_the_limit_is_413(client):
     conforms(response)
 
 
+def test_api_largest_form_body_reaches_validation_not_413(client):
+    """04 §4.1: 23 fields × 100 '€' (3 bytes each in UTF-8) is the most the form can send."""
+    euros = '€' * 100
+    body = json.dumps({'loanAmount': euros, 'annualRate': euros, 'termYears': euros,
+                       'extraPayments': [{'month': euros, 'amount': euros}] * 10}, ensure_ascii=False).encode()
+    assert 7000 < len(body) <= MAX_BODY_BYTES
+    response = post_raw(client, body)
+    assert response.status_code == 422
+    assert len(conforms(response)['errors']) == 23
+
+
+def test_api_extra_payments_end_to_end(client):
+    body = conforms(client.post(CALC, json={**VALID, 'extraPayments': [{'month': '24', 'amount': '5 000'}]}))
+    assert (body['numberOfPayments'], body['regularPayment'], body['monthsSaved'], body['interestSaved']) == (
+        332, '449.04', 28, '7778.30')
+    assert body['extraPayments'] == [{'month': 24, 'amount': '5000.00', 'usedAmount': '5000.00', 'status': 'used'}]
+
+
+def test_api_without_extra_payments_reports_empty_savings(client):
+    body = conforms(client.post(CALC, json=VALID))
+    assert (body['monthsSaved'], body['interestSaved'], body['extraPayments']) == (0, '0.00', [])
+
+
+def test_api_item_errors_carry_index_and_property(client):
+    body = conforms(client.post(CALC, json={**VALID, 'extraPayments': [{'month': '1', 'amount': '1'}, {}]}))
+    assert body == {'errors': [{'field': 'extraPayments', 'code': 'required', 'index': 1, 'property': 'month'},
+                               {'field': 'extraPayments', 'code': 'required', 'index': 1, 'property': 'amount'}]}
+
+
 def test_api_chunked_body_over_the_limit_is_413(client):
     """No Content-Length: the limit is enforced while the body streams in."""
-    chunks = iter([b'{"loanAmount": "', b'1' * 600, b'1' * 600, b'"}'])
+    chunks = iter([b'{"loanAmount": "', b'1' * 5000, b'1' * 5000, b'"}'])
     response = client.post(CALC, content=chunks, headers={'content-type': 'application/json'})
     assert 'content-length' not in response.request.headers
     assert response.status_code == 413
@@ -204,7 +241,8 @@ async def run_middleware(headers: list[tuple[bytes, bytes]]) -> tuple[int, bool]
 
 
 @pytest.mark.parametrize(('declared', 'expected'), [
-    (b'5000', (413, False)), (b'1025', (413, False)), (b'1024', (200, True)), (b'2', (200, True))])
+    (b'50000', (413, False)), (str(MAX_BODY_BYTES + 1).encode(), (413, False)),
+    (str(MAX_BODY_BYTES).encode(), (200, True)), (b'2', (200, True))])
 def test_api_declared_oversized_body_is_refused_without_reading_it(declared, expected):
     import asyncio
 
@@ -226,7 +264,7 @@ def test_api_cors_wildcard_is_refused(origins):
 
 def test_api_chunked_body_one_byte_over_the_limit_is_413(client):
     body = padded(MAX_BODY_BYTES + 1)
-    response = client.post(CALC, content=iter([body[:500], body[500:]]), headers={'content-type': 'application/json'})
+    response = client.post(CALC, content=iter([body[:5000], body[5000:]]), headers={'content-type': 'application/json'})
     assert response.status_code == 413
 
 

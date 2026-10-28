@@ -33,6 +33,15 @@ def cors_origins_from_env() -> list[str]:
     return [origin.strip() for origin in value.split(',') if origin.strip()]
 
 
+def error_body(error) -> dict[str, object]:
+    """A ValidationError as the contract's object; index and property only for extraPayments items."""
+    body: dict[str, object] = {'field': error.field, 'code': error.code}
+    if error.index is not None:
+        body['index'] = error.index
+        body['property'] = error.property
+    return body
+
+
 async def save_best_effort(repository: CalculationRepository, outcome) -> str | None:
     """D5: a failed save never fails the request; the result is returned with id null."""
     try:
@@ -70,8 +79,7 @@ def create_app(cors_origins: list[str] | None = None, repository: CalculationRep
 
         outcome = run_calculator(raw)
         if isinstance(outcome, Rejected):
-            return JSONResponse({'errors': [{'field': e.field, 'code': e.code} for e in outcome.errors]},
-                                status_code=422)
+            return JSONResponse({'errors': [error_body(e) for e in outcome.errors]}, status_code=422)
         r = outcome.result
         return JSONResponse({
             'id': await save_best_effort(repository, outcome),
@@ -80,6 +88,10 @@ def create_app(cors_origins: list[str] | None = None, repository: CalculationRep
             'finalPayment': str(r.final_payment),
             'totalPaid': str(r.total_paid),
             'totalInterest': str(r.total_interest),
+            'monthsSaved': r.months_saved,
+            'interestSaved': str(r.interest_saved),
+            'extraPayments': [{'month': e.month, 'amount': str(e.amount), 'usedAmount': str(e.used_amount),
+                               'status': e.status} for e in r.extra_payments],
         })
 
     @app.get('/api/v1/health')

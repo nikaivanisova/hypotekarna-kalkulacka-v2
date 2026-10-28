@@ -19,7 +19,7 @@ from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 
 from mortgage.app.calculator import Calculated, Rejected, run_calculator
-from mortgage.domain.types import Field, ValidationErrorCode
+from mortgage.domain.types import ExtraPaymentProperty, ExtraPaymentStatus, Field, ValidationErrorCode
 
 SPEC_PATH = Path(__file__).resolve().parents[3] / 'api' / 'openapi.yaml'
 SPEC = yaml.safe_load(SPEC_PATH.read_text(encoding='utf-8'))
@@ -28,7 +28,7 @@ OPERATION = SPEC['paths']['/api/v1/calculations']['post']
 REQUEST_EXAMPLES = OPERATION['requestBody']['content']['application/json']['examples']
 RESULT_EXAMPLES = OPERATION['responses']['200']['content']['application/json']['examples']
 ERROR_EXAMPLES = OPERATION['responses']['422']['content']['application/json']['examples']
-MONEY_FIELDS = ('regularPayment', 'finalPayment', 'totalPaid', 'totalInterest')
+MONEY_FIELDS = ('regularPayment', 'finalPayment', 'totalPaid', 'totalInterest', 'interestSaved')
 REGISTRY = Registry().with_resource('spec', Resource.from_contents(SPEC, default_specification=DRAFT202012))
 
 
@@ -86,17 +86,24 @@ def test_contract_every_request_example_has_one_response_example():
 @pytest.mark.parametrize('name', sorted(REQUEST_EXAMPLES))
 def test_contract_example_matches_backend(name):
     body = REQUEST_EXAMPLES[name]['value']
-    outcome = run_calculator({field: body.get(field) for field in ('loanAmount', 'annualRate', 'termYears')})
+    raw = {field: body.get(field) for field in ('loanAmount', 'annualRate', 'termYears')}
+    raw['extraPayments'] = body.get('extraPayments')
+    outcome = run_calculator(raw)
     if name in RESULT_EXAMPLES:
         assert isinstance(outcome, Calculated), outcome
         expected = {k: v for k, v in RESULT_EXAMPLES[name]['value'].items() if k != 'id'}
         r = outcome.result
         assert {'numberOfPayments': r.number_of_payments, 'regularPayment': str(r.regular_payment),
                 'finalPayment': str(r.final_payment), 'totalPaid': str(r.total_paid),
-                'totalInterest': str(r.total_interest)} == expected
+                'totalInterest': str(r.total_interest), 'monthsSaved': r.months_saved,
+                'interestSaved': str(r.interest_saved),
+                'extraPayments': [{'month': e.month, 'amount': str(e.amount), 'usedAmount': str(e.used_amount),
+                                   'status': e.status} for e in r.extra_payments]} == expected
     else:
         assert isinstance(outcome, Rejected), outcome
-        assert [{'field': e.field, 'code': e.code} for e in outcome.errors] == ERROR_EXAMPLES[name]['value']['errors']
+        errors = [{'field': e.field, 'code': e.code, **({'index': e.index, 'property': e.property}
+                                                          if e.index is not None else {})} for e in outcome.errors]
+        assert errors == ERROR_EXAMPLES[name]['value']['errors']
 
 
 def test_contract_money_is_never_a_number():
@@ -114,16 +121,40 @@ def test_contract_money_pattern_rejects_non_canonical_amounts(value):
 
 
 def test_contract_request_is_closed_and_responses_are_open():
-    """Review findings #1, #9: unknown request properties are a 400; responses may gain properties."""
+    """Review findings #1, #9: unknown request properties are a 400 (also inside extra-payment items);
+    responses may gain properties."""
     assert SCHEMAS['CalculationRequest']['additionalProperties'] is False
     closed = [name for name, schema in SCHEMAS.items() if schema.get('additionalProperties') is False]
     closed += [location for location, media in media_objects()
                if 'request' not in location and resolve(media['schema']).get('additionalProperties') is False]
-    assert closed == ['CalculationRequest']
+    assert sorted(closed) == ['CalculationRequest', 'ExtraPaymentInput']  # request side only
 
 
 def test_contract_known_codes_and_fields_equal_the_backend_types():
     """Review finding #2: the vocabulary is open (no enum), but the documented values are exactly the backend's."""
-    assert 'enum' not in SCHEMAS['Field'] and 'enum' not in SCHEMAS['ValidationErrorCode']
-    assert SCHEMAS['Field']['examples'] == list(get_args(Field.__value__))
+    for name in ('Field', 'ValidationErrorCode', 'ExtraPaymentStatus'):
+        assert 'enum' not in SCHEMAS[name], name
+    assert SCHEMAS['Field']['examples'] == list(get_args(Field.__value__)) + ['extraPayments']
     assert set(SCHEMAS['ValidationErrorCode']['examples']) == set(get_args(ValidationErrorCode.__value__))
+    assert set(SCHEMAS['ExtraPaymentStatus']['examples']) == set(get_args(ExtraPaymentStatus.__value__))
+    assert SCHEMAS['ValidationError']['properties']['property']['examples'] == list(get_args(ExtraPaymentProperty.__value__))
+
+
+def test_contract_item_errors_require_index_and_property():
+    """05 finding 11: for field extraPayments, index and property are required (if/then)."""
+    error = validator({'$ref': '#/components/schemas/ValidationError'})
+    assert error.is_valid({'field': 'extraPayments', 'code': 'required', 'index': 0, 'property': 'month'})
+    assert not error.is_valid({'field': 'extraPayments', 'code': 'required', 'index': 0})
+    assert not error.is_valid({'field': 'extraPayments', 'code': 'required', 'property': 'month'})
+    assert error.is_valid({'field': 'loanAmount', 'code': 'required'})
+
+
+def test_contract_extra_payment_items_are_closed_and_limited():
+    request = validator({'$ref': '#/components/schemas/CalculationRequest'})
+    item = {'month': '12', 'amount': '100'}
+    assert request.is_valid({'extraPayments': [item] * 10})
+    assert request.is_valid({'extraPayments': None}) and request.is_valid({'extraPayments': []})
+    assert not request.is_valid({'extraPayments': [item] * 11})
+    assert not request.is_valid({'extraPayments': [{**item, 'fee': '1'}]})
+    assert not request.is_valid({'extraPayments': [{'month': 12, 'amount': '100'}]})
+    assert not request.is_valid({'extraPayments': item})

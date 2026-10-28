@@ -1,4 +1,4 @@
-"""Request body size limit, enforced before parsing (api/openapi.yaml; review 03 #5).
+"""Request body size limit (8 KiB since Phase 7), enforced before parsing (api/openapi.yaml; review 03 #5).
 
 A declared Content-Length over the limit is refused at once; a streamed (chunked) body is
 counted as it arrives and refused as soon as it passes the limit.
@@ -8,7 +8,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from mortgage.api.problems import problem
 
-MAX_BODY_BYTES = 1024
+MAX_BODY_BYTES = 8 * 1024  # Phase 7: the largest body the form can send is 7 216 bytes (04 §4.1)
 
 
 class BodySizeLimitMiddleware:

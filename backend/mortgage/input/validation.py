@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from mortgage.domain.types import (
+    ExtraPayment,
     Field,
     Invalid,
     LoanInput,
@@ -60,6 +61,15 @@ def check_field(raw: str | None, rule: FieldRule) -> Decimal | ValidationErrorCo
     return value
 
 
+MAX_TERM_MONTHS = 360  # the month limit while the term itself is invalid (04 §2)
+EXTRA_AMOUNT_RULE = FieldRule(Decimal('0.01'), Decimal('1000000'), 2, False)
+
+
+def extra_month_rule(term_months: int) -> FieldRule:
+    """Month of an extra payment: a whole number from 1 to term × 12 (04 §2), checked like the V1 term."""
+    return FieldRule(Decimal('1'), Decimal(term_months), 0, True)
+
+
 def validate_loan_input(raw: RawLoanInput, rules: dict[Field, FieldRule] = V1_RULES) -> ValidationResult:
     values: dict[Field, Decimal] = {}
     errors: list[ValidationError] = []
@@ -71,6 +81,20 @@ def validate_loan_input(raw: RawLoanInput, rules: dict[Field, FieldRule] = V1_RU
         else:
             errors.append(ValidationError(field, check))
 
+    # Phase 7: extra payments, after the V1 fields; per item month before amount (04 §2, §4.1).
+    term_months = int(values['termYears']) * 12 if 'termYears' in values else MAX_TERM_MONTHS
+    month_rule = extra_month_rule(term_months)
+    extras: list[ExtraPayment] = []
+    for index, item in enumerate(raw.get('extraPayments') or []):
+        month = check_field(item.get('month'), month_rule)
+        amount = check_field(item.get('amount'), EXTRA_AMOUNT_RULE)
+        if not isinstance(month, Decimal):
+            errors.append(ValidationError('extraPayments', month, index, 'month'))
+        if not isinstance(amount, Decimal):
+            errors.append(ValidationError('extraPayments', amount, index, 'amount'))
+        if isinstance(month, Decimal) and isinstance(amount, Decimal):
+            extras.append(ExtraPayment(int(month), amount))
+
     if errors:
         return Invalid(tuple(errors))
-    return Valid(LoanInput(values['loanAmount'], values['annualRate'], int(values['termYears'])))
+    return Valid(LoanInput(values['loanAmount'], values['annualRate'], int(values['termYears']), tuple(extras)))

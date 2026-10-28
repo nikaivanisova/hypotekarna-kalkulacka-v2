@@ -5,9 +5,19 @@ Field names and error codes are the API's (camelCase), so they pass through unch
 """
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 type Field = Literal['loanAmount', 'annualRate', 'termYears']
+
+# Where a validation error points: a V1 field, or an item of the extra-payment list (Phase 7).
+type ErrorField = Field | Literal['extraPayments']
+type ExtraPaymentProperty = Literal['month', 'amount']
+
+
+class RawExtraPayment(TypedDict, total=False):
+    """One extra payment exactly as typed; a missing key or None means "not provided"."""
+    month: str | None
+    amount: str | None
 
 
 class RawLoanInput(TypedDict):
@@ -15,6 +25,7 @@ class RawLoanInput(TypedDict):
     loanAmount: str | None
     annualRate: str | None
     termYears: str | None
+    extraPayments: NotRequired[list[RawExtraPayment] | None]  # Phase 7; absent / None / [] = none
 
 
 @dataclass(frozen=True)
@@ -79,8 +90,10 @@ type ValidationErrorCode = Literal[
 
 @dataclass(frozen=True)
 class ValidationError:
-    field: Field
+    field: ErrorField
     code: ValidationErrorCode
+    index: int | None = None  # 0-based position in extraPayments; None for the V1 fields
+    property: ExtraPaymentProperty | None = None  # 'month' or 'amount' for extraPayments; None otherwise
 
 
 @dataclass(frozen=True)
