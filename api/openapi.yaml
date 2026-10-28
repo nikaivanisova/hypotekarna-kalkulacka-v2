@@ -18,12 +18,13 @@ info:
       - `422`: the request is well-formed, but the user's input is invalid (V1 rules, 01 §3.3).
         The body lists machine-readable codes; the frontend turns them into messages.
       - `400`: the request itself is malformed. This includes a body that is not a JSON object, wrong JSON
-        types, unknown properties, invalid strings such as lone surrogates (`"\ud800"`), and values
-        longer than 100 characters. The body is RFC 9457 `application/problem+json`.
+        types, unknown properties, invalid strings such as lone surrogates (`"\ud800"`), values
+        longer than 100 characters, more than 10 extra payments, and an extra-payment item that is not
+        an object or has unknown properties. The body is RFC 9457 `application/problem+json`.
     - **Error bodies never contain request values.** `Problem.detail` may name a property or
       location, never what was sent. `500` responses carry no `detail`.
     - **What a client does with each status:** `200` shows the result; `422` shows one message per
-      field; every other status (`400`, `413`, `415`, `429`, `500`) and a network failure show one
+      field or extra-payment item (`index`, `property`); every other status (`400`, `413`, `415`, `429`, `500`) and a network failure show one
       general error message (01-functional V2 §2.1).
 
     ## Extra payments (Phase 7; docs/v2/04-extra-payments.md)
@@ -39,14 +40,17 @@ info:
     - **Vocabularies may grow.** Clients MUST show a generic message for a `field`, `code`,
       `property` or item `status` they do not know.
     - **Requests are closed** (`additionalProperties: false`, also inside `extraPayments` items), so
-      a typo such as `loanamount` is a `400` instead of a silent `required`. The frontend omits
-      empty extra-payment rows, and frontend and backend are deployed together.
+      a typo such as `loanamount` is a `400` instead of a silent `required`. The frontend leaves out
+      an extra-payment row whose month and amount are both empty after JavaScript `trim`, and
+      frontend and backend are deployed together.
 
     ## Not expressible in OpenAPI (normative for Phase 4)
 
     - **CORS:** only the frontend's origin is allowed (an allowlist from configuration, no `*`).
     - **Body size:** at most 8 KiB, enforced before the body is parsed; larger → `413`. The form's
       largest possible body is 7 216 bytes (23 fields × 100 characters of 3-byte UTF-8; 04 §4.1).
+    - **Extra-payment results (04 §3.3):** `usedAmount` ≤ `amount`, and the items of one month use
+      that month's amount in request order (the first one entered is used first).
     - **Rate limiting:** the backend may answer `429` with `Retry-After`. The policy itself
       (limits per client) is configuration, set in Phase 4/8.
     - **FastAPI defaults do not conform**; Phase 4 must override them:
@@ -327,17 +331,15 @@ components:
           $ref: '#/components/schemas/Money'
           description: totalPaid − loan amount.
         monthsSaved:
-          description: Payments saved by the extra payments, compared with the same loan without them (0 without extra payments).
+          description: Payments saved by the extra payments, compared with the same loan without them (0 without extra payments; today at most 359).
           type: integer
           minimum: 0
-          maximum: 359
         interestSaved:
           $ref: '#/components/schemas/Money'
           description: Interest saved by the extra payments, compared with the same loan without them. Never negative (04 §3.5).
         extraPayments:
-          description: One entry per request item, in request order (empty without extra payments).
+          description: One entry per request item, in request order (empty without extra payments; today at most 10).
           type: array
-          maxItems: 10
           items:
             $ref: '#/components/schemas/AppliedExtraPayment'
 
@@ -346,9 +348,9 @@ components:
       required: [month, amount, usedAmount, status]
       properties:
         month:
+          description: The validated month (today 1 – 360).
           type: integer
           minimum: 1
-          maximum: 360
         amount:
           $ref: '#/components/schemas/Money'
           description: The validated amount as requested.
@@ -396,10 +398,9 @@ components:
         code:
           $ref: '#/components/schemas/ValidationErrorCode'
         index:
-          description: The position of the `extraPayments` item the error refers to (0-based, in the request).
+          description: The position of the `extraPayments` item the error refers to (0-based, in the request; today at most 9).
           type: integer
           minimum: 0
-          maximum: 9
         property:
           description: |
             The item property the error refers to. Known values: `month`, `amount`. Clients show the

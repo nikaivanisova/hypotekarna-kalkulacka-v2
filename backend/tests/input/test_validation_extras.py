@@ -37,7 +37,8 @@ def test_absent_null_or_empty_list_means_no_extra_payments(raw):
 
 @pytest.mark.parametrize(('month', 'code'), [
     ('', 'required'), (None, 'required'), ('   ', 'required'), ('abc', 'not_a_number'), ('-1', 'negative'),
-    ('-0', 'negative'), ('2,5', 'not_whole_number'), ('24,0', 'too_many_decimals'), ('0', 'below_min'),
+    ('-0', 'negative'), ('2,5', 'not_whole_number'), ('24,0', 'too_many_decimals'), ('12,00', 'too_many_decimals'),
+    ('0', 'below_min'),
     ('361', 'above_max'), ('1e2', 'not_a_number'),
 ])
 def test_month_errors(month, code):
@@ -95,3 +96,23 @@ def test_v1_errors_keep_their_shape():
     """index and property stay None for the V1 fields (unchanged API shape for them)."""
     [error] = errors_of(validate_loan_input({**BASE, 'loanAmount': ''}))
     assert (error.index, error.property) == (None, None)
+
+
+# --- Sweep of the month limit (contract review 7c finding 3; CLAUDE.md: rules over a numeric domain get a sweep) ---
+
+
+@pytest.mark.parametrize('term', range(1, 31))
+def test_month_limit_follows_every_valid_term(term):
+    last = term * 12
+    assert isinstance(validate([{'month': str(last), 'amount': '1'}], termYears=str(term)), Valid)
+    assert isinstance(validate([{'month': '1', 'amount': '1'}], termYears=str(term)), Valid)
+    assert errors_of(validate([{'month': str(last + 1), 'amount': '1'}], termYears=str(term))) == [
+        item_error(0, 'month', 'above_max')]
+
+
+@pytest.mark.parametrize('term', ['0', '31', 'abc', '', None, '2,5', '-1'])
+def test_month_limit_is_360_while_the_term_is_invalid(term):
+    within = [e for e in errors_of(validate([{'month': '360', 'amount': '1'}], termYears=term)) if e.field == 'extraPayments']
+    beyond = [e for e in errors_of(validate([{'month': '361', 'amount': '1'}], termYears=term)) if e.field == 'extraPayments']
+    assert within == []
+    assert beyond == [item_error(0, 'month', 'above_max')]

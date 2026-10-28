@@ -110,6 +110,7 @@ MALFORMED = {
     'extra payment not an object': b'{"extraPayments": ["12:100"]}',
     'extra payment null item': b'{"extraPayments": [null]}',
     'unknown property in an item': b'{"extraPayments": [{"month": "1", "amount": "1", "fee": "0"}]}',
+    'misspelled property in an item': b'{"extraPayments": [{"Month": "1", "amount": "1"}]}',
     'number in an item': b'{"extraPayments": [{"month": 12, "amount": "100"}]}',
     '101 characters in an item': json.dumps({'extraPayments': [{'month': '1', 'amount': '1' * 101}]}).encode(),
     'lone surrogate in an item': b'{"extraPayments": [{"month": "\\ud800", "amount": "1"}]}',
@@ -186,6 +187,14 @@ def test_api_largest_form_body_reaches_validation_not_413(client):
     response = post_raw(client, body)
     assert response.status_code == 422
     assert len(conforms(response)['errors']) == 23
+
+
+@pytest.mark.parametrize(('count', 'status'), [(10, 200), (11, 400)])
+def test_api_extra_payment_count_limit(client, count, status):
+    items = [{'month': str(m), 'amount': '100'} for m in range(1, count + 1)]
+    response = client.post(CALC, json={**VALID, 'extraPayments': items})
+    assert response.status_code == status
+    conforms(response)
 
 
 def test_api_extra_payments_end_to_end(client):
