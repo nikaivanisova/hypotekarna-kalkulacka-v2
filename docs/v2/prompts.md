@@ -447,3 +447,14 @@ The contract-change review and the mutation runs reported back during Prompt 47;
 - Secret scan of the commit: nothing found. Pushed `master` `42e6182..cf733e4`.
 - Second CI run (https://github.com/nikaivanisova/hypotekarna-kalkulacka-v2/actions/runs/40776395067): **all 4 jobs green**.
 - This log entry is committed locally only, so that logging does not start another push and CI run. It goes up with the next push.
+
+
+## Prompt 52 — What next?
+
+### Prompt
+
+> what is next step?
+
+### Output
+
+- Answered from `docs/handoff.md` Next Steps and `docs/v2/06-retro.md` §4: optional branch protection, deployment when wanted, V3 planning, the `no-plan/` decision. Committed locally (not pushed).
