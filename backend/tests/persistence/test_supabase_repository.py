@@ -1,4 +1,8 @@
-"""Phase 6 — saving calculations in Supabase (FR-4, D5; plan §4), against a mock HTTP transport."""
+"""Saving calculations in Supabase (FR-4, D5; Phase 7: 04-extra-payments.md §5), against a mock HTTP transport.
+
+Since Phase 7 the backend calls the `save_calculation` function (one transaction for the calculation and
+its extra payments) through `POST /rest/v1/rpc/save_calculation` with `{"payload": …}`; it returns the id.
+"""
 import asyncio
 import json
 import logging
@@ -8,7 +12,7 @@ import httpx2
 import pytest
 
 from mortgage.domain.calculation import calculate_mortgage
-from mortgage.domain.types import LoanInput
+from mortgage.domain.types import ExtraPayment, LoanInput
 from mortgage.persistence.repository import (
     ENGINE_VERSION,
     NullRepository,
@@ -32,7 +36,7 @@ def save(repo, loan=LOAN, result=RESULT):
 
 
 def created(request):
-    return httpx2.Response(201, json=[{'id': ROW_ID}])
+    return httpx2.Response(200, json=ROW_ID)
 
 
 def test_save_posts_one_row_to_the_rest_api():
@@ -45,10 +49,9 @@ def test_save_posts_one_row_to_the_rest_api():
     assert save(repository(handler)) == ROW_ID
     request = seen[0]
     assert request.method == 'POST'
-    assert str(request.url) == f'{URL}/rest/v1/calculations?select=id'
+    assert str(request.url) == f'{URL}/rest/v1/rpc/save_calculation'
     assert request.headers['apikey'] == KEY
     assert 'authorization' not in request.headers  # the gateway derives it from apikey (Supabase docs)
-    assert request.headers['prefer'] == 'return=representation'
     assert request.headers['content-type'] == 'application/json'
 
 
@@ -61,7 +64,7 @@ def test_save_sends_money_as_strings_never_floats():
 
     save(repository(handler))
     body = json.loads(bodies[0])
-    assert body == {
+    assert body == {'payload': {
         'loan_amount': '100000',
         'annual_rate': '3.5',
         'term_years': 30,
@@ -70,8 +73,11 @@ def test_save_sends_money_as_strings_never_floats():
         'final_payment': '452.02',
         'total_paid': '161657.38',
         'total_interest': '61657.38',
+        'months_saved': 0,
+        'interest_saved': '0.00',
         'engine_version': ENGINE_VERSION,
-    }
+        'extra_payments': [],
+    }}
     parsed_with_floats_rejected = json.loads(bodies[0], parse_float=lambda s: pytest.fail(f'float in body: {s}'))
     assert parsed_with_floats_rejected == body
 
@@ -79,7 +85,7 @@ def test_save_sends_money_as_strings_never_floats():
 def test_save_normalises_a_trailing_slash_in_the_url():
     urls = []
     save(repository(lambda r: urls.append(str(r.url)) or created(r), url=URL + '/'))
-    assert urls == [f'{URL}/rest/v1/calculations?select=id']
+    assert urls == [f'{URL}/rest/v1/rpc/save_calculation']
 
 
 @pytest.mark.parametrize('status', [400, 401, 403, 404, 409, 500, 503])
@@ -95,14 +101,13 @@ def test_save_network_error_returns_none(error):
     assert save(repository(handler)) is None
 
 
-@pytest.mark.parametrize('body', [[], [{}], {'id': ROW_ID}, [{'id': 'not-a-uuid'}], [{'id': 12}], 'x',
-                                  [{'id': ROW_ID}, {'id': ROW_ID}]])
+@pytest.mark.parametrize('body', [[], [{}], {'id': ROW_ID}, [{'id': ROW_ID}], [ROW_ID], 'not-a-uuid', 12, None])
 def test_save_unexpected_response_returns_none(body):
-    assert save(repository(lambda r: httpx2.Response(201, json=body))) is None
+    assert save(repository(lambda r: httpx2.Response(200, json=body))) is None
 
 
 def test_save_non_json_response_returns_none():
-    assert save(repository(lambda r: httpx2.Response(201, text='<html>'))) is None
+    assert save(repository(lambda r: httpx2.Response(200, text='<html>'))) is None
 
 
 def test_failures_are_logged_without_the_key(caplog):
@@ -168,24 +173,24 @@ def test_repository_repr_does_not_show_the_key():
 # --- Second guards (docs/v1/06-retro.md §6.1 rule 3) -------------------------------------------
 
 
-@pytest.mark.parametrize('status', [200, 202, 409])
-def test_save_non_201_status_with_a_valid_looking_body_returns_none(status):
-    assert save(repository(lambda r: httpx2.Response(status, json=[{'id': ROW_ID}]))) is None
+@pytest.mark.parametrize('status', [201, 202, 409])
+def test_save_non_200_status_with_a_valid_looking_body_returns_none(status):
+    assert save(repository(lambda r: httpx2.Response(status, json=ROW_ID))) is None
 
 
-def test_save_three_rows_returns_none():
-    assert save(repository(lambda r: httpx2.Response(201, json=[{'id': ROW_ID}] * 3))) is None
+def test_save_a_list_of_ids_returns_none():
+    assert save(repository(lambda r: httpx2.Response(200, json=[ROW_ID] * 3))) is None
 
 
-def test_save_empty_201_body_returns_none():
-    assert save(repository(lambda r: httpx2.Response(201, content=b''))) is None
+def test_save_empty_200_body_returns_none():
+    assert save(repository(lambda r: httpx2.Response(200, content=b''))) is None
 
 
 def test_save_money_fields_are_strings():
     bodies = []
     save(repository(lambda r: bodies.append(json.loads(r.content)) or created(r)))
     for field in ('loan_amount', 'annual_rate', 'regular_payment', 'final_payment', 'total_paid', 'total_interest'):
-        assert isinstance(bodies[0][field], str), field
+        assert isinstance(bodies[0]['payload'][field], str), field
 
 
 def test_the_key_is_sent_only_in_the_apikey_header():
@@ -199,7 +204,7 @@ def test_the_key_is_sent_only_in_the_apikey_header():
 def test_save_normalises_trailing_slashes(suffix):
     urls = []
     save(repository(lambda r: urls.append(str(r.url)) or created(r), url=URL + suffix))
-    assert urls == [f'{URL}/rest/v1/calculations?select=id']
+    assert urls == [f'{URL}/rest/v1/rpc/save_calculation']
 
 
 def test_repository_from_env_has_the_short_timeout(monkeypatch):
@@ -217,3 +222,33 @@ def test_error_status_is_logged_without_the_key(caplog, status):
     caplog.set_level(logging.WARNING)
     save(repository(lambda r: httpx2.Response(status, json={'hint': KEY})))
     assert str(status) in caplog.text and KEY not in caplog.text
+
+
+# --- Phase 7: extra payments are saved with their calculation (04 §5) --------------------------
+
+
+def test_save_sends_the_extra_payments_in_request_order():
+    loan = LoanInput(Decimal('100000'), Decimal('3.5'), 30,
+                     (ExtraPayment(60, Decimal('50000')), ExtraPayment(60, Decimal('50000')), ExtraPayment(120, Decimal('1000'))))
+    bodies = []
+    save(repository(lambda r: bodies.append(json.loads(r.content)) or created(r)), loan, calculate_mortgage(loan))
+    payload = bodies[0]['payload']
+    assert (payload['number_of_payments'], payload['months_saved'], payload['interest_saved']) == (60, 300, '45017.60')
+    assert payload['extra_payments'] == [
+        {'month': 60, 'amount': '50000.00', 'used_amount': '50000.00', 'status': 'used'},
+        {'month': 60, 'amount': '50000.00', 'used_amount': '39697.38', 'status': 'partly_used'},
+        {'month': 120, 'amount': '1000.00', 'used_amount': '0.00', 'status': 'after_payoff'},
+    ]
+
+
+def test_save_extra_payment_amounts_are_strings():
+    loan = LoanInput(Decimal('100000'), Decimal('3.5'), 30, (ExtraPayment(24, Decimal('5000')),))
+    bodies = []
+    save(repository(lambda r: bodies.append(r.content.decode()) or created(r)), loan, calculate_mortgage(loan))
+    json.loads(bodies[0], parse_float=lambda s: pytest.fail(f'float in body: {s}'))
+    [item] = json.loads(bodies[0])['payload']['extra_payments']
+    assert all(isinstance(item[k], str) for k in ('amount', 'used_amount', 'status'))
+
+
+def test_engine_version_marks_the_extra_payment_rules():
+    assert ENGINE_VERSION == 'v2-calc-2'

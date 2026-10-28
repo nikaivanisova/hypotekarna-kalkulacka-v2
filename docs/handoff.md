@@ -213,18 +213,31 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
   - The response id `d1b55276-d3cb-4537-996c-2d6ca894f3bd` exists in `public.calculations` with the same values, `engine_version` `v2-calc-1`. That row was **left in place**, as a real saved calculation (table: 1 row).
   - `.claude/launch.json` backend now starts with `uv run --env-file backend/.env` (needs `backend/.env`).
 
+- **Phase 7 complete (Prompts 45–48): extra payments (FR-5).**
+  - **Spec** `docs/v2/04-extra-payments.md`, approved by the author in Prompt 47; review `05-extra-payments-review.md`.
+  - **Step 1, domain:** `mortgage/domain/schedule.py`. The month-by-month run with the three endings, used amounts in request order and 6 statuses. `calculate_mortgage` delegates to it (ADR-9). The V1 tests are unchanged and green, and `tools/v1_parity.py` → 0 mismatches.
+  - **Step 2, API:** item validation (month 1–term × 12, or 360 while the term is invalid; amount 0,01–1 000 000; V1 codes; errors with `index` and `property`). The request parser accepts the closed items; results always carry `monthsSaved`, `interestSaved` and `extraPayments`; the body limit is 8 KiB.
+    - `api/openapi.yaml` updated, then independently reviewed: approve with changes, 4 Minor findings, all applied. They removed the bounds from response schemas, updated two info sentences, added the month-limit sweep test, and added the "not expressible" bullet.
+  - **Step 3, parity:** `tests/domain/test_extra_reference_parity.py` → the backend equals `calc_extra` cent for cent, statuses included, on 803 loans from the stratified generator `extra_sweep_cases`, plus explicit schedule-ending cases.
+  - **Step 4, storage:** migration `20261028205501_extra_payments` (columns, the `extra_payments` table, `save_calculation`); the grants were verified (see `supabase/README.md`). The repository calls the RPC, and `ENGINE_VERSION` is `v2-calc-2`.
+    - Live: 2/2 passed, including a transaction with 3 items, which was deleted again.
+    - Saved via the page's API path: E1 (`99688ff5-…`, left in place; the database now holds 2 calculations).
+  - **Step 5, frontend:** rows (add/remove, at most 10, blank rows skipped), the row map for errors, extra result lines, durations, notes per status, generic texts for unknown values.
+  - **Tests:** backend **429 passed** (+2 live, skipped without a key); frontend **133 unit** + **13 e2e** (Edge, real backend).
+  - **Hand mutation checks:** every mutation is caught by ≥ 2 tests, except one equivalent mutation.
+    - Backend: 21 mutations; the equivalent one is `due <= paid_now` → `<`, because an exact pay-off then ends through the zero tail with identical results.
+    - Frontend: 20 mutations. They found one gap: notes were not cleared after a failure; now tested.
+    - Persistence: 10 mutations.
+  - **Not verified by hand in the browser:** the pane was hidden at the end. The e2e tests drive the same page flows in Edge.
+
 ## Next Steps
 1. Before Phase 8: decide the rate-limit policy (`429`). Every valid request now writes a row, so this matters more.
-2. **Phase 7 — extra payments: the spec is written and reviewed; waiting for the author's approval of `docs/v2/04-extra-payments.md`.**
-   - Decisions X1–X10 (Prompts 45–46): one-time, up to 10, no fee, paid with month k's payment, pay-off uses only what is owed, 0,01–1 000 000 €, the same month adds up, months 1–term × 12, outputs new loan length / time saved / interest saved; an extra in a month where the loan ends anyway is "not needed".
-   - `tools/reference.py` implements the rules exactly (`calc_extra`, with 6 per-item statuses). E1–E12 and a stratified sweep (3 200 loans; 0 violations; every ending and status reached) pass, and the sweep itself is mutation-tested (10/10 caught).
-   - Independent review `docs/v2/05-extra-payments-review.md`: 6 Major and 7 Minor findings, all resolved. Key points:
-     - the `tiny_balance` case;
-     - interest saved ≥ 0, proven;
-     - the row map for errors;
-     - `save_calculation` RPC security (invoker, `search_path`, revoke from public/anon/authenticated);
-     - an 8 KiB body limit.
-   - After approval: build plan §7 (schedule module → API and contract change → tests → migration → frontend).
+2. **Phase 8 — clean-up & CI** (plan §6):
+   - Run `tools/v1_parity.py` once more, then delete `legacy/` (D6).
+   - GitHub Actions: pytest, Vitest, `tools/reference.py`, contract tests, Playwright.
+   - Decide hosting (D10) and the `429` policy.
+   - V2 retrospective.
+   - Note: `tools/reference.py` now takes about 100 s, so CI may run the extra sweep with fewer loans.
 
 
 V1 is complete. Before or at the start of V2:

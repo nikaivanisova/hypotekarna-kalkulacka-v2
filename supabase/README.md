@@ -7,6 +7,7 @@ The schema lives as SQL migrations in `migrations/`. The file name is the versio
 | Version | Migration | Content |
 |---|---|---|
 | `20261027221257` | `create_calculations` | `public.calculations` (FR-4), plan §4 plus CHECK constraints that mirror the V1 rules |
+| `20261028205501` | `extra_payments` | Phase 7 (04 §5): `months_saved` and `interest_saved` (both `>= 0`) on `calculations`; table `extra_payments` (PK calculation + position, `used_amount ≤ amount`, cascade delete); function `save_calculation(payload jsonb) returns uuid` |
 
 ## Access
 
@@ -14,6 +15,17 @@ Only the backend reads or writes, using the **secret key** (`sb_secret_...`, in 
 
 - RLS is enabled with **no policies**. The security advisor reports this as INFO "RLS enabled, no policy"; that is intended.
 - All privileges are revoked from `anon` and `authenticated`. Verified: `set role anon; select ...` → `permission denied`.
+
+## `save_calculation` (Phase 7)
+
+- Saves a calculation and its extra payments **in one transaction**, and checks each item's month against the loan's term.
+- `security invoker`, `set search_path = ''`. EXECUTE is revoked from `public`, `anon` and `authenticated` and granted only to `service_role`.
+- Verified on 2026-10-28:
+  - `has_function_privilege`: anon false, authenticated false, service_role true.
+  - With the publishable key, `/rest/v1/rpc/save_calculation` → HTTP 401, and both tables → `permission denied`.
+  - As `service_role` in a rolled-back transaction, E3 saved 3 items in order with the right statuses.
+  - A month beyond the term is rejected and nothing is written.
+  - Security advisor: only the intended INFO "RLS enabled, no policy" for both tables.
 
 ## Constraints
 

@@ -30,9 +30,9 @@ npm.cmd run e2e
 | Module | V1 | Rule |
 |---|---|---|
 | `src/formatting.js` | M5 | `"1234.57"` → `1 234,57 €`. Accepts only canonical Money strings and never rounds. |
-| `src/presentation.js` | M6 | V1 texts, labels and order. `shouldShowFinalPayment` compares strings. Unknown codes and fields get a generic message. |
-| `src/api-client.js` | — | `calculate(raw)` → `result` / `invalid` / `failure`; checks the response shape; never rejects. |
-| `src/page.js` | (M8) | The form; errors under each field (`aria-invalid`); one general error; `maxlength="100"`; one request at a time. |
+| `src/presentation.js` | M6 | V1 texts, labels and order. `shouldShowFinalPayment` compares strings. Unknown codes and fields get a generic message. Phase 7: `formatDuration`, `formatPayments`, the extra result lines, notes per status, item errors with the form row number; unknown statuses, codes and properties get generic texts. |
+| `src/api-client.js` | — | `calculate(raw)` → `result` / `invalid` / `failure`; checks the response shape; never rejects. Sends `extraPayments` (month and amount only) only when there are some. |
+| `src/page.js` | (M8) | The form; errors under each field (`aria-invalid`); one general error; `maxlength="100"`; one request at a time. Phase 7: up to 10 extra-payment rows (add/remove), blank rows skipped, a sent-index → row map for item errors, notes per status. |
 | `src/main.js` | (M9) | Wires the page to the client (`VITE_API_BASE_URL`, default same origin). |
 
 `tests/unit/no-money-math.test.js` fails if `src/` uses `parseFloat`, `Number(`, `toFixed`, `Math.`, `Intl` or `BigInt`.

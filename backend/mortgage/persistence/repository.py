@@ -1,4 +1,7 @@
-"""Saving calculations (FR-4) in Supabase through its REST API (plan §4; D4, D5).
+"""Saving calculations (FR-4) in Supabase through its REST API (plan §4; D4, D5; 04-extra-payments.md §5).
+
+The calculation and its extra payments are saved in one transaction by the database function
+`save_calculation(payload jsonb) returns uuid`, called as `POST /rest/v1/rpc/save_calculation`.
 
 Best effort: save() returns the new row's id, or None if the row could not be saved. It never
 raises and never logs the secret key. Money is sent as decimal strings, never as JSON numbers.
@@ -17,7 +20,7 @@ import httpx2
 from mortgage.domain.types import LoanInput, MortgageResult
 
 # Which calculation rules produced a row. Change it whenever the results for the same input could change.
-ENGINE_VERSION = 'v2-calc-1'
+ENGINE_VERSION = 'v2-calc-2'  # Phase 7: extra payments (04 §5)
 
 log = logging.getLogger(__name__)
 
@@ -43,19 +46,20 @@ def _row(loan: LoanInput, result: MortgageResult) -> dict[str, object]:
         'final_payment': str(result.final_payment),
         'total_paid': str(result.total_paid),
         'total_interest': str(result.total_interest),
+        'months_saved': result.months_saved,
+        'interest_saved': str(result.interest_saved),
         'engine_version': ENGINE_VERSION,
+        'extra_payments': [{'month': e.month, 'amount': str(e.amount), 'used_amount': str(e.used_amount),
+                            'status': e.status} for e in result.extra_payments],
     }
 
 
 def _saved_id(response: httpx2.Response) -> str | None:
-    """The id from PostgREST's `return=representation` body: exactly one row with a UUID id."""
+    """The id the function returns: PostgREST sends a scalar `uuid` result as one JSON string."""
     try:
-        rows = response.json()
+        row_id = response.json()
     except ValueError:
         return None
-    if not (isinstance(rows, list) and len(rows) == 1 and isinstance(rows[0], dict)):
-        return None
-    row_id = rows[0].get('id')
     try:
         return str(uuid.UUID(row_id)) if isinstance(row_id, str) else None
     except ValueError:
@@ -70,7 +74,7 @@ class SupabaseRepository:
             raise ValueError('SUPABASE_URL must be an https:// URL (http:// only for a local stack).')
         if not secret_key.startswith('sb_secret_'):
             raise ValueError('SUPABASE_SECRET_KEY must be a Supabase secret key (sb_secret_...).')
-        self._endpoint = url.rstrip('/') + '/rest/v1/calculations'
+        self._endpoint = url.rstrip('/') + '/rest/v1/rpc/save_calculation'
         self._secret_key = secret_key
         self._transport = transport
         self.timeout_seconds = timeout_seconds
@@ -79,18 +83,14 @@ class SupabaseRepository:
         return f'SupabaseRepository({self._endpoint!r})'
 
     async def save(self, loan: LoanInput, result: MortgageResult) -> str | None:
-        headers = {
-            'apikey': self._secret_key,  # the Supabase gateway derives Authorization from it
-            'Prefer': 'return=representation',
-        }
+        headers = {'apikey': self._secret_key}  # the Supabase gateway derives Authorization from it
         try:
             async with httpx2.AsyncClient(transport=self._transport, timeout=self.timeout_seconds) as client:
-                response = await client.post(self._endpoint, params={'select': 'id'}, headers=headers,
-                                             json=_row(loan, result))
+                response = await client.post(self._endpoint, headers=headers, json={'payload': _row(loan, result)})
         except httpx2.HTTPError as error:
             log.warning('calculation not saved: %s', type(error).__name__)
             return None
-        if response.status_code != 201:
+        if response.status_code != 200:
             log.warning('calculation not saved: HTTP %d', response.status_code)
             return None
         row_id = _saved_id(response)

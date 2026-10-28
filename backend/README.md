@@ -7,8 +7,8 @@ Parsing, validation and the mortgage calculation, served over HTTP with FastAPI;
 | 2 | ✅ done | `mortgage/` — port of V1 M1–M4 and M7 (`domain/`, `input/`, `app/`) |
 | 3 | ✅ done | contract tests for `api/openapi.yaml` (`tests/contract/`) |
 | 4 | ✅ done | `mortgage/api/`: FastAPI app implementing `api/openapi.yaml` (`tests/api/`) |
-| 6 | ✅ done | `mortgage/persistence/`: saves each calculation in Supabase (`tests/persistence/`, `tests/integration/`) — 283 tests in total |
-| 7 | — | `mortgage/domain/schedule.py`: extra payments |
+| 6 | ✅ done | `mortgage/persistence/`: saves each calculation in Supabase (`tests/persistence/`, `tests/integration/`) |
+| 7 | ✅ done | extra payments: `mortgage/domain/schedule.py`, item validation, API fields, `save_calculation` — 429 tests in total (+2 live) |
 
 ## Run the server
 
@@ -37,16 +37,17 @@ Use `python -m pytest`, not `uv run pytest`: Windows Application Control on the 
 
 | Module | V1 | Rule |
 |---|---|---|
-| `domain/types.py` | M1 | Types only. API field names and error codes (camelCase) are used as-is. |
+| `domain/types.py` | M1 | Types only. API field names and error codes (camelCase) are used as-is. Phase 7 adds `ExtraPayment`, `AppliedExtraPayment` and the statuses. |
+| `domain/schedule.py` | (ADR-9) | The month-by-month run with extra payments (04 §3.2–3.3): schedule / extra / zero-tail endings, used amounts in request order, statuses. `calculate_mortgage` delegates to it; without extras the results are exactly V1. |
 | `domain/calculation.py` | M4 | Private `Context(prec=40, ROUND_HALF_UP)` entered with `localcontext()`; the caller's context is never changed. |
 | `input/parsing.py` | M2 | Strict grammar with `fullmatch` before `Decimal()`; trims exactly the JavaScript `trim()` whitespace set. |
 | `input/validation.py` | M3 | Same rules, codes and order as V1; `-0` is `negative` (`is_signed()`). |
 | `app/calculator.py` | M7 | Validation, then calculation. Returns data, no display text. |
-| `api/app.py` | — | Routes; serves `api/openapi.yaml`; CORS allowlist. Imports only `app/*` and `domain/types`. |
-| `api/request.py` | — | Strict body reading: object of 3 string-or-null properties, ≤ 100 chars, no duplicates or lone surrogates → else 400. |
+| `api/app.py` | — | Routes; serves `api/openapi.yaml`; CORS allowlist. Imports only `app/*`, `domain/types` and `persistence/*`. |
+| `api/request.py` | — | Strict body reading: object of 3 string-or-null properties plus optional `extraPayments` (≤ 10 closed `{month, amount}` items), ≤ 100 chars per value, no duplicates or lone surrogates → else 400. |
 | `api/problems.py` | — | problem+json for every HTTP error; never echoes request values; no `detail` on 5xx. |
-| `api/body_limit.py` | — | 1 KiB limit before parsing (Content-Length and streamed) → 413. |
-| `persistence/repository.py` | — | `SupabaseRepository.save()` → row id or `None`. Posts to the REST API with the secret key in the `apikey` header only; money as strings; 3 s timeout; never raises; never logs the key. `NullRepository` when not configured. |
+| `api/body_limit.py` | — | 8 KiB limit before parsing (Content-Length and streamed) → 413. The form's largest body is 7 216 bytes. |
+| `persistence/repository.py` | — | `SupabaseRepository.save()` → row id or `None`. Calls `POST /rest/v1/rpc/save_calculation` with `{"payload": …}` (calculation and extra payments in one transaction), with the secret key in the `apikey` header only; money as strings; 3 s timeout; never raises; never logs the key. `NullRepository` when not configured. |
 
 Tests never reach the real database: `tests/conftest.py` removes the `SUPABASE_*` variables, except for tests marked `live`. To check the real project on purpose:
 
@@ -54,7 +55,7 @@ Tests never reach the real database: `tests/conftest.py` removes the `SUPABASE_*
 uv run --env-file .env python -m pytest -m live
 ```
 
-This saves one row, reads it back, then deletes it.
+This saves two calculations (one of them with three extra payments, in one transaction), reads them back, then deletes them; the extra payments go with them (cascade).
 
 `tests/test_architecture.py` enforces the allowed imports per layer, no I/O, and no cycles.
 

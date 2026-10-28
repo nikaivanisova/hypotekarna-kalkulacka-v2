@@ -345,3 +345,44 @@ Asked one question at a time, each with a recommended option:
     - the list of contract changes.
   - Plan §4 deviation logged.
 - Committed as "docs: extra-payment spec, review and exact reference (Phase 7 spec)". Waiting for the author's approval.
+
+## Prompt 47 — Approve the spec; build Phase 7
+
+### Prompt
+
+> Approve, start build
+
+### Output
+
+- Recorded the approval in `04-extra-payments.md` and `05-extra-payments-review.md`. Built build plan §7, test-first, step by step.
+- **Step 1, domain** (commit `6ea9c3e`):
+  - `domain/schedule.py` (the three endings, used amounts in request order, 6 statuses); `calculate_mortgage` delegates to it (ADR-9).
+  - Tests: E1–E12 as literal values, D7, request order, outputs as exact cents, and the private context.
+  - V1 tests unchanged and green; `tools/v1_parity.py` → 0 mismatches. The architecture guard caught the new import and was updated deliberately.
+- **Step 2, API** (`02beb8c`):
+  - Item validation: month 1–term × 12, or 360 while the term is invalid; amount 0,01–1 000 000; V1 codes; errors with `index` and `property`.
+  - The request parser accepts the closed items (else 400); results gain `monthsSaved`, `interestSaved` and `extraPayments`; 8 KiB limit.
+  - `api/openapi.yaml` updated (the 04 §4.1 list); contract tests updated.
+  - Not test-first for one part: the validation tests were written before the code, but not run red before it passed.
+  - An independent contract review found 4 Minor issues, all applied (`1e570bb`). They removed the bounds from response schemas, updated two info sentences, added the month-limit sweep test, and added the "not expressible" bullet.
+- **Step 3, parity** (`a0ce866`): `tools/reference.py` got `extra_sweep_cases` (the same stratified generator; the sweep output is unchanged). `test_extra_reference_parity.py`: the backend equals `calc_extra` on 803 loans, cent for cent, statuses included.
+- **Hand mutation checks:**
+  - Backend: 21 mutations. All caught except one that is equivalent (`due <= paid_now` → `<`: an exact pay-off then ends through the zero tail with identical results). Second guards were added until each rule fails ≥ 2 tests.
+  - Frontend: 20 mutations. They found one real gap (notes not cleared after a failure), now tested.
+  - Persistence: 10 mutations, all caught.
+  - Two script problems on the way: a pytest output decoding error, and patterns that did not match. Both were fixed and the runs repeated.
+- **Step 4, storage:**
+  - Migration `20261028205501_extra_payments` (columns, the `extra_payments` table, `save_calculation`) applied with the Supabase MCP.
+  - Verified: invoker, empty `search_path`, EXECUTE only for `service_role`; the publishable key gets 401 on the RPC and on both tables; E3 saved correctly in a rolled-back transaction; a month beyond the term is rejected; the advisor shows only the intended INFO notices.
+  - The repository now calls the RPC (`ENGINE_VERSION` `v2-calc-2`). Live tests 2/2 passed.
+  - E1 was saved through the page's API path (`99688ff5-…`, left in place).
+- **Step 5, frontend:**
+  - Extra-payment rows (add/remove, at most 10, blank rows skipped after JS `trim`), the sent-index → row map for errors, extra result lines, durations, notes per status, generic texts for unknown values.
+  - 133 unit tests and 13 e2e tests (Edge, real backend) pass.
+- **Final:** backend 429 passed (+2 live); frontend 133 + 13.
+- **Not verified by hand in the browser:** the browser pane was hidden at the end. The e2e tests cover the page flows.
+- READMEs and the handoff updated. Committed as "docs: Phase 7 complete (extra payments)" and "feat: save extra payments through save_calculation (Phase 7, step 4)".
+
+## Prompt 48 — (background reviews)
+
+The contract-change review and the mutation runs reported back during Prompt 47; no user prompt.
