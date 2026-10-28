@@ -3,8 +3,9 @@
   "configurations": [
     {
       "name": "backend",
-      "runtimeExecutable": "backend/.venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "uvicorn", "mortgage.api.app:app", "--app-dir", "backend", "--port", "8000"],
+      "runtimeExecutable": "py",
+      "runtimeArgs": ["-m", "uv", "run", "--project", "backend", "--env-file", "backend/.env",
+                      "python", "-m", "uvicorn", "mortgage.api.app:app", "--app-dir", "backend", "--port", "8000"],
       "port": 8000,
       "url": "http://localhost:8000"
     },

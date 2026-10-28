@@ -188,7 +188,7 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
     - Playwright uses `channel: 'msedge'`; no browser download, and Application Control allows Edge.
     - In dev, Vite proxies `/api` to the backend, so the page and the API share one origin.
 
-- **Phase 6 built (Prompt 36); the live check is waiting for the author's secret key:**
+- **Phase 6 complete (Prompts 36–44; live check passed in Prompt 44):**
   - **D11 decided:** a **new** Supabase project, `hypotekarna-kalkulacka` (id `rncaqhekknjdivkpadkw`, `eu-central-1`), in the author's only organization (free plan). It was created at $0 and is used as the dev project (no local stack and no Docker). The author's other project, `PDA-1`, is inactive and was not touched.
   - **Migration** `20261027221257_create_calculations` (applied with the Supabase MCP; file in `supabase/migrations/`). It creates the plan §4 table plus CHECK constraints for the input ranges and the cross-column rules.
   - RLS is on with no policies, and all privileges are revoked from `anon` and `authenticated`.
@@ -206,16 +206,16 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
   - `httpx2` is now a runtime dependency.
   - Added `backend/.env.example` (contains the URL; the key is empty), `supabase/README.md`, and the plan §4 note.
 
+- **Live check passed (Prompt 44):**
+  - `backend/.env` holds the secret key (checked without printing: `sb_secret_`, no quotes or spaces; ignored by git). On the first try it held the publishable key, which the backend would refuse.
+  - `uv run --env-file .env python -m pytest -m live` → 1 passed: a row was saved, read back (355 payments, total paid 6379.35) and deleted.
+  - **Web page → backend → Supabase:** 123 456,78 € / 4,25 % / 25 y on the page gave Regular 668,81 €, Final 670,10 €, Total Paid 200 644,29 €, Total Interest 77 187,51 €, which equals `tools/reference.py`.
+  - The response id `d1b55276-d3cb-4537-996c-2d6ca894f3bd` exists in `public.calculations` with the same values, `engine_version` `v2-calc-1`. That row was **left in place**, as a real saved calculation (table: 1 row).
+  - `.claude/launch.json` backend now starts with `uv run --env-file backend/.env` (needs `backend/.env`).
+
 ## Next Steps
-1. **Paused here (Prompt 38). Resume with the live check:**
-   - `backend/.env` **exists** (created from `.env.example` in Prompt 37; ignored by git) with the URL filled in, but **`SUPABASE_SECRET_KEY=` is still empty**. The author pastes the key from Dashboard → project `hypotekarna-kalkulacka` → Project Settings → API Keys → Secret keys (`sb_secret_…`), with no quotes or spaces, and saves the file without a `.txt` extension.
-   - Before running anything, check the file without printing the key: present, starts with `sb_secret_`, no quotes or spaces.
-   - Then, in `backend/`: `uv run --env-file .env python -m pytest -m live` (saves one row, reads it back, deletes it).
-   - Then save one calculation from the web page and check the row with the Supabase MCP.
-   - The preview backend in `.claude/launch.json` starts without `--env-file`, so it does not save; restart it with the `.env` for that check.
-   - Checked in Prompt 37: no real key appears in any project file or environment variable, so nothing was exposed.
-2. Before Phase 8: decide the rate-limit policy (`429`). With FR-4 saving every valid request, it matters more now.
-3. Phase 7 (extra payments): first answer the FR-5 questions in `docs/v2/01-functional.md` §2.2.
+1. Before Phase 8: decide the rate-limit policy (`429`). Every valid request now writes a row, so this matters more.
+2. **Phase 7 — extra payments (mimoriadna splátka):** first answer the FR-5 questions in `docs/v2/01-functional.md` §2.2 (one-time or recurring, fee, limits, outputs), then write the spec and have it reviewed before any code.
 
 Open for Phase 7: the FR-5 extra-payment questions in `docs/v2/01-functional.md` §2.2.
 

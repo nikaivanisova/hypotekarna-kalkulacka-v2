@@ -218,3 +218,69 @@ Prompts 21–26 (the V2 plan, the Python setup and decision D7) are logged in `d
 
 - All code was already committed (`5f9b3ac`, Phase 6). Recorded Prompts 37–38 and the paused state in `docs/handoff.md` (Next Steps 1: how to resume the live check).
 - Committed as "docs: record paused Phase 6 live check". `backend/.env` stays uncommitted (gitignored); `no-plan/` stays uncommitted as before.
+
+## Prompt 39 — What is the secret key?
+
+### Prompt
+
+> what is the supabase_secret_key
+
+### Output
+
+- Explained what the secret API key is (`sb_secret_…`, server-side only, the only way into the locked-down table), that the assistant cannot read it, and where it is in the dashboard (project `hypotekarna-kalkulacka` → Project Settings → API Keys → Secret keys). Explained how it differs from the publishable key, the legacy `eyJ…` keys and the database password. Asked the author not to paste it into the chat.
+
+## Prompt 40 — Where to paste it
+
+### Prompt
+
+> do i need to paste it here or to the backend\.env
+
+### Output
+
+- Only into `backend\.env`, never into the chat (chat history keeps it). Gave the Notepad steps, and what to do if it was pasted into the chat by mistake (rotate the key).
+
+## Prompt 41 — Publishable key too?
+
+### Prompt
+
+> ma tam byt aj sb_publishable?
+
+### Output
+
+- (Answered in Slovak.) No: only `SUPABASE_URL` and `SUPABASE_SECRET_KEY`. The frontend never talks to Supabase (D4), the table is closed to the publishable key, and the backend refuses non-`sb_secret_` keys.
+
+## Prompt 42 — Prefix or not?
+
+### Prompt
+
+> so if the key looked like sb_publishable_12345 i need to paste 12345?
+
+### Output
+
+- No: the publishable key is not used at all. The secret key is pasted whole, including the `sb_secret_` prefix (the dashboard's copy button copies it that way).
+
+## Prompt 43 — "I have it"
+
+### Prompt
+
+> okay, i have it
+
+### Output
+
+- Checked `backend/.env` without printing the key: it held the **publishable** key. That is not a leak (publishable keys are public), but the backend cannot use it. Told the author where the Secret keys section is.
+
+## Prompt 44 — Look now (live check)
+
+### Prompt
+
+> look now
+
+### Output
+
+- `backend/.env` now holds a key starting with `sb_secret_`, with no quotes or spaces; URL correct; ignored by git.
+- `uv run --env-file .env python -m pytest -m live` → **1 passed** (saved, read back, deleted).
+- `.claude/launch.json` backend now uses `uv run --env-file backend/.env`. Restarted both previews.
+- Submitted 123 456,78 € / 4,25 % / 25 y on the page: 668,81 / 670,10 / 200 644,29 / 77 187,51 €, which equals `tools/reference.py`.
+  - The response id `d1b55276-…` exists in Supabase with the same values and `engine_version` `v2-calc-1`.
+  - The row was left in place (1 row in the table).
+- **Phase 6 complete.** Updated `docs/handoff.md`. Committed as "chore: load backend/.env in the preview; record Phase 6 live check".
