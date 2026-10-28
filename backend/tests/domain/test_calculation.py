@@ -1,4 +1,4 @@
-"""M4 — domain/calculation (docs/v1/03-test-scenarios.md tests 41–61, 102–108), ported from legacy/cli.
+"""M4 — domain/calculation (docs/v1/03-test-scenarios.md tests 41–61, 102–108), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final).
 
 Amounts are compared as strings ("449.04"), which is stricter than V1's numeric equality:
 it also proves every output already has exactly two decimal places, as the API will send it.

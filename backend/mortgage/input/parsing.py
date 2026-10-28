@@ -1,4 +1,4 @@
-"""M2 — Number parsing (docs/v1/02-architecture.md §3, M2; 01-functional.md §3.2), ported from legacy/cli.
+"""M2 — Number parsing (docs/v1/02-architecture.md §3, M2; 01-functional.md §3.2), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final).
 
 Converts one raw text value into an exact decimal number.
 """

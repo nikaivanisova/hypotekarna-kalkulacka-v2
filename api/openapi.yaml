@@ -51,8 +51,10 @@ info:
       largest possible body is 7 216 bytes (23 fields × 100 characters of 3-byte UTF-8; 04 §4.1).
     - **Extra-payment results (04 §3.3):** `usedAmount` ≤ `amount`, and the items of one month use
       that month's amount in request order (the first one entered is used first).
-    - **Rate limiting:** the backend may answer `429` with `Retry-After`. The policy itself
-      (limits per client) is configuration, set in Phase 4/8.
+    - **Rate limiting:** per client IP (the TCP peer; `X-Forwarded-For` is not trusted), at most 30
+      `POST /api/v1/calculations` requests in any 60 seconds (a sliding window; configurable with
+      `MORTGAGE_RATE_LIMIT`). Over the limit → `429` with `Retry-After` (whole seconds), before the
+      body is read. Refused requests do not count. In memory, for one server process.
     - **FastAPI defaults do not conform**; Phase 4 must override them:
       - Out of the box FastAPI answers malformed requests with its own `422 {"detail": [...]}`
         (which echoes inputs) and turns `"\ud800"` into a plain-text 500.

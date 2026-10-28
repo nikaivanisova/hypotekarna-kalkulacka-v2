@@ -1,4 +1,4 @@
-"""M7 — app/calculator (docs/v1/03-test-scenarios.md tests 80–84, 109), ported from legacy/cli.
+"""M7 — app/calculator (docs/v1/03-test-scenarios.md tests 80–84, 109), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final).
 
 In V2 the use case returns the domain result or the validation errors; turning them into labels,
 messages and "hide an equal Final Payment" is the frontend's job (plan §2). The scenarios and

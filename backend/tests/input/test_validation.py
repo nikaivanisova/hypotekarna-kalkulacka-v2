@@ -1,4 +1,4 @@
-"""M3 — input/validation (docs/v1/03-test-scenarios.md tests 17–40, 101), ported from legacy/cli."""
+"""M3 — input/validation (docs/v1/03-test-scenarios.md tests 17–40, 101), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final)."""
 from decimal import Decimal
 
 import pytest

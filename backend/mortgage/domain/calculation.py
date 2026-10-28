@@ -1,4 +1,4 @@
-"""M4 — Mortgage calculation (docs/v1/02-architecture.md §3, M4; 01-functional.md §4), ported from legacy/cli.
+"""M4 — Mortgage calculation (docs/v1/02-architecture.md §3, M4; 01-functional.md §4), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final).
 
 Computes the payment figures of a fixed-rate annuity mortgage from a valid loan request, including
 one-time extra payments (Phase 7; docs/v2/04-extra-payments.md). The month-by-month run lives in

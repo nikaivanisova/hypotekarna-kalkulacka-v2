@@ -1,4 +1,4 @@
-"""Architecture guard (docs/v1/02-architecture.md §4, ADR-7; tests 93–95), ported from legacy/cli.
+"""Architecture guard (docs/v1/02-architecture.md §4, ADR-7; tests 93–95), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final).
 
 Reads every import in mortgage/, checks it against an explicit allow-list per layer,
 checks that the core layers perform no I/O, and checks the import graph for cycles.
@@ -22,8 +22,9 @@ LAYER_IMPORTS: dict[str, list[str]] = {
 INTRA_LAYER_IMPORTS: dict[str, list[str]] = {
     'input.validation': ['input.parsing'],
     'domain.calculation': ['domain.schedule'],  # Phase 7, ADR-9: M4 delegates the month-by-month run
-    'api.app': ['api.body_limit', 'api.problems', 'api.request'],
+    'api.app': ['api.body_limit', 'api.problems', 'api.rate_limit', 'api.request'],
     'api.body_limit': ['api.problems'],
+    'api.rate_limit': ['api.problems'],
 }
 
 # Standard-library and third-party modules each layer may import.
@@ -31,7 +32,8 @@ LAYER_PACKAGES: dict[str, set[str]] = {
     'domain': {'__future__', 'dataclasses', 'decimal', 'typing'},
     'input': {'__future__', 'dataclasses', 'decimal', 're', 'typing'},
     'app': {'__future__', 'dataclasses', 'typing'},
-    'api': {'__future__', 'http', 'json', 'logging', 'os', 'pathlib', 'typing', 'fastapi', 'starlette', 'yaml'},
+    'api': {'__future__', 'collections', 'dataclasses', 'http', 'json', 'logging', 'math', 'os', 'pathlib', 'time',
+            'typing', 'fastapi', 'starlette', 'yaml'},
     'persistence': {'__future__', 'logging', 'os', 'typing', 'uuid', 'httpx2'},
 }
 

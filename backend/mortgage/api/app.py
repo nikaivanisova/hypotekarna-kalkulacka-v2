@@ -4,10 +4,13 @@ Run locally:  uv run --env-file .env python -m uvicorn mortgage.api.app:app --po
 Settings (environment):
     MORTGAGE_CORS_ORIGINS  comma-separated allowed origins (default: the Vite dev server)
     SUPABASE_URL, SUPABASE_SECRET_KEY  where calculations are saved (mortgage/persistence; optional)
+    MORTGAGE_RATE_LIMIT    calculations per client IP, "<limit>/<seconds>" (default 30/60) or "off"
 """
 import logging
 import os
+import time
 from pathlib import Path
+from typing import Callable
 
 import yaml
 from fastapi import FastAPI, Request
@@ -16,6 +19,7 @@ from fastapi.responses import JSONResponse
 
 from mortgage.api.body_limit import BodySizeLimitMiddleware
 from mortgage.api.problems import install_problem_handlers, problem
+from mortgage.api.rate_limit import RateLimit, RateLimitMiddleware, rate_limit_from_env
 from mortgage.api.request import RequestError, parse_calculation_request
 from mortgage.app.calculator import Rejected, run_calculator
 from mortgage.persistence.repository import CalculationRepository, repository_from_env
@@ -51,19 +55,27 @@ async def save_best_effort(repository: CalculationRepository, outcome) -> str | 
         return None
 
 
-def create_app(cors_origins: list[str] | None = None, repository: CalculationRepository | None = None) -> FastAPI:
+UNSET = object()
+
+
+def create_app(cors_origins: list[str] | None = None, repository: CalculationRepository | None = None,
+               rate_limit: RateLimit | None | object = UNSET, clock: Callable[[], float] = time.monotonic) -> FastAPI:
     origins = cors_origins if cors_origins is not None else cors_origins_from_env()
     if '*' in origins:
         raise ValueError('CORS must list the frontend origin(s); "*" is not allowed (api/openapi.yaml).')
     repository = repository if repository is not None else repository_from_env()
+    rate_limit = rate_limit_from_env() if rate_limit is UNSET else rate_limit  # None = no limit
 
     app = FastAPI(title='Mortgage Calculator API', redoc_url=None)
     contract = yaml.safe_load(CONTRACT_PATH.read_text(encoding='utf-8'))
     app.openapi = lambda: contract  # serve the reviewed contract, not FastAPI's generated document
 
     install_problem_handlers(app)
-    # Added last = outermost: CORS headers are also set on 413 responses from the body limit.
+    # Added last = outermost: CORS headers are also set on 413 and 429 responses; the rate limit
+    # refuses a request before its body is read.
     app.add_middleware(BodySizeLimitMiddleware)
+    if rate_limit is not None:
+        app.add_middleware(RateLimitMiddleware, rate_limit=rate_limit, clock=clock)
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=['GET', 'POST'],
                        allow_headers=['Content-Type'])
 

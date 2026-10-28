@@ -1,0 +1,80 @@
+# CI for V2 (plan Phase 8; docs/v1/06-retro.md §6.3): every check that was run by hand per phase.
+# No secrets: the Supabase live tests are skipped (they run by hand with backend/.env).
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (pytest, contract, architecture, parity with the reference)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.5'
+          python-version: '3.14'
+      - run: uv sync --locked
+      - run: uv run python -m pytest -q -W error
+
+  reference:
+    name: Exact-rational reference (tools/reference.py)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: python -I tools/reference.py
+
+  frontend:
+    name: Frontend (Vitest, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  e2e:
+    name: End to end (Playwright, Chromium, real backend)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.5'
+          python-version: '3.14'
+      - run: uv sync --locked
+        working-directory: backend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run e2e
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_CHANNEL: chromium

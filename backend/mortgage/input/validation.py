@@ -1,4 +1,4 @@
-"""M3 — Input validation (docs/v1/02-architecture.md §3, M3; 01-functional.md §3.1, §3.3), ported from legacy/cli.
+"""M3 — Input validation (docs/v1/02-architecture.md §3, M3; 01-functional.md §3.1, §3.3), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final).
 
 Decides whether a set of raw inputs forms a valid loan request.
 """

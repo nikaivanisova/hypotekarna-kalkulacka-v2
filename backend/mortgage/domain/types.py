@@ -1,4 +1,4 @@
-"""M1 — Domain types (docs/v1/02-architecture.md §3, M1), ported from legacy/cli.
+"""M1 — Domain types (docs/v1/02-architecture.md §3, M1), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final).
 
 The shared vocabulary for FR-1, FR-2 and FR-3. Types only: no logic.
 Field names and error codes are the API's (camelCase), so they pass through unchanged.

@@ -1,5 +1,5 @@
 /**
- * M5 — Money formatting (docs/v1/01-functional.md §3.4; ADR-4), ported from legacy/cli.
+ * M5 — Money formatting (docs/v1/01-functional.md §3.4; ADR-4), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final).
  *
  * Renders an API Money string as Slovak/EU-style euro text, e.g. "1234.57" → "1 234,57 €".
  * Pure string work: the backend has already rounded to cents, and the frontend never does

@@ -1,5 +1,5 @@
 /**
- * M5 — formatting (docs/v1/03-test-scenarios.md tests 62–68), ported from legacy/cli.
+ * M5 — formatting (docs/v1/03-test-scenarios.md tests 62–68), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final).
  *
  * V2 change: the API sends canonical 2-dp strings (contract `Money`) and the frontend must not
  * round or do arithmetic (CLAUDE.md). So tests 66–67, which fed V1 unrounded Decimals, now

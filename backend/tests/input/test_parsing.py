@@ -1,4 +1,4 @@
-"""M2 — input/parsing (docs/v1/03-test-scenarios.md tests 1–16, 96–100), ported from legacy/cli."""
+"""M2 — input/parsing (docs/v1/03-test-scenarios.md tests 1–16, 96–100), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final)."""
 from decimal import Decimal
 
 import pytest

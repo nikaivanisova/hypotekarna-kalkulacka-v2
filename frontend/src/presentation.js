@@ -1,5 +1,5 @@
 /**
- * M6 — Presentation (docs/v1/01-functional.md §2 Outputs, §3.3, §3.5), ported from legacy/cli.
+ * M6 — Presentation (docs/v1/01-functional.md §2 Outputs, §3.3, §3.5), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final).
  *
  * Turns an API CalculationResult or validation errors into display-ready English text.
  * The V1 texts are the exact strings from docs/v1/03-test-scenarios.md, "Expected UI texts".

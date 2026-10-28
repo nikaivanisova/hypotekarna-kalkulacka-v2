@@ -1,5 +1,5 @@
 /**
- * M6 — presentation (docs/v1/03-test-scenarios.md tests 69–79; "Expected UI texts"), ported from legacy/cli.
+ * M6 — presentation (docs/v1/03-test-scenarios.md tests 69–79; "Expected UI texts"), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final).
  *
  * Results arrive as the API's CalculationResult (Money as 2-dp strings).
  */

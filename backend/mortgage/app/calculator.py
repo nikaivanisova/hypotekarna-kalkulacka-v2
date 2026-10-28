@@ -1,4 +1,4 @@
-"""M7 — app/calculator (docs/v1/02-architecture.md §3, M7; 01-functional.md FR-3), ported from legacy/cli.
+"""M7 — app/calculator (docs/v1/02-architecture.md §3, M7; 01-functional.md FR-3), ported from V1 (legacy/cli; removed in Phase 8, see git tag v1-final).
 
 Orchestrates one calculation request: raw inputs → validation → calculation.
 Pure and synchronous; no I/O. Presentation (labels, messages) belongs to the frontend in V2.
