@@ -124,3 +124,76 @@ button:disabled {
 .result li:first-child {
   border-top: 0;
 }
+
+/* Phase 7: extra payments */
+.extras {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.extras legend {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+
+.extras .help {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.extra-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: 0.5rem;
+  align-items: start;
+  margin-bottom: 0.5rem;
+}
+
+.extra-row .field {
+  margin-bottom: 0;
+}
+
+.extra-row .remove {
+  margin-top: 1.75rem;
+}
+
+button.secondary {
+  width: auto;
+  padding: 0.45rem 0.8rem;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+}
+
+button.secondary:disabled {
+  cursor: not-allowed;
+}
+
+.result .notes {
+  margin: 0.75rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.result .notes:empty {
+  display: none;
+}
+
+.result .notes li {
+  padding: 0.2rem 0;
+}
+
+@media (max-width: 420px) {
+  .extra-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .extra-row .remove {
+    grid-column: 1 / -1;
+    margin-top: 0;
+  }
+}

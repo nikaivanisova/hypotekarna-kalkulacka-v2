@@ -92,3 +92,32 @@ describe('api client', () => {
     expect(await createApiClient({ fetch: fakeFetch(422, body) }).calculate(RAW)).toEqual({ kind: 'failure' });
   });
 });
+
+describe('api client — extra payments (Phase 7)', () => {
+  it('test_client_sends_extra_payments_exactly_as_typed', async () => {
+    const fetch = fakeFetch(200, RESULT);
+    const extraPayments = [{ month: ' 24 ', amount: '5 000,00' }, { month: '60', amount: '' }];
+    await createApiClient({ fetch }).calculate({ ...RAW, extraPayments });
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ ...RAW, extraPayments });
+  });
+
+  it.each([[[]], [undefined], [null]])('test_client_omits_an_empty_extra_payment_list (%j)', async (extraPayments) => {
+    const fetch = fakeFetch(200, RESULT);
+    await createApiClient({ fetch }).calculate({ ...RAW, extraPayments });
+    expect(Object.keys(JSON.parse(fetch.mock.calls[0][1].body))).toEqual(['loanAmount', 'annualRate', 'termYears']);
+  });
+
+  it.each([
+    [{ month: '1', amount: '1', row: 3 }],
+    [{ month: '1', amount: '1', status: 'used', usedAmount: '1.00' }],
+  ])('test_client_sends_only_month_and_amount_per_item (%j)', async (item) => {
+    const fetch = fakeFetch(200, RESULT);
+    await createApiClient({ fetch }).calculate({ ...RAW, extraPayments: [item] });
+    expect(JSON.parse(fetch.mock.calls[0][1].body).extraPayments).toEqual([{ month: '1', amount: '1' }]);
+  });
+
+  it('test_client_keeps_item_errors_with_index_and_property', async () => {
+    const errors = [{ field: 'extraPayments', index: 0, property: 'month', code: 'required' }];
+    expect(await createApiClient({ fetch: fakeFetch(422, { errors }) }).calculate(RAW)).toEqual({ kind: 'invalid', errors });
+  });
+});

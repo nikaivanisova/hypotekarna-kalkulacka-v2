@@ -60,7 +60,8 @@ describe('page', () => {
     mount({ kind: 'result', result: RESULT });
     fill({ loanAmount: ' 100 000 ', annualRate: '3,5', termYears: '' });
     await submit();
-    expect(client.calculate).toHaveBeenCalledWith({ loanAmount: ' 100 000 ', annualRate: '3,5', termYears: '' });
+    // Phase 7: the page always passes the (here empty) extra-payment rows; the client omits an empty list.
+    expect(client.calculate).toHaveBeenCalledWith({ loanAmount: ' 100 000 ', annualRate: '3,5', termYears: '', extraPayments: [] });
   });
 
   it('test_page_shows_result_lines', async () => {

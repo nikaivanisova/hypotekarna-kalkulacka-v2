@@ -326,19 +326,20 @@ def check_loan(P, rate, years, extras, x, b):
     return fails
 
 
-def check_extra_sweep(loans=3200):
-    """§3.5 properties over seeded loans in 8 strata, so that every ending and status occurs."""
+def extra_sweep_cases(loans=3200):
+    """Seeded loans in 8 strata (spec §3.5): yields (index, stratum, P, rate, years, extras, built).
+
+    `built` names the edge case that was constructed on purpose, or None. A stratum whose
+    construction does not fit a loan yields that loan with no extras (only strata 0 and 1 are
+    meant to have none). The backend's parity test reuses this generator.
+    """
     rng = random.Random(11)
-    bad, built = [], {}
-    endings = {'schedule': 0, 'extra': 0, 'zero_tail': 0}
-    statuses = {s: 0 for s in STATUSES}
-    loans_with_extras = loans_without = 0
     for i in range(loans):
         stratum = i % 8
         cents, years = rng.randint(100000, 100000000), rng.randint(1, 30)
         rate_bp = 0 if stratum == 3 else rng.randint(0, 2000)
         P, rate, n = F(cents, 100), F(rate_bp, 100), years * 12
-        extras = []
+        extras, built = [], None
         if stratum == 2:
             extras = random_extras(rng, n, cents)
         elif stratum == 3:  # 0 %: random extras, plus an exact pay-off (D == M + X is reachable only at 0 %)
@@ -349,7 +350,7 @@ def check_extra_sweep(loans=3200):
                 Mr = calc(P, rate, years)['regular']
                 if D is not None and D > Mr:
                     extras.append((m, D - Mr))
-                    built['exact pay-off'] = built.get('exact pay-off', 0) + 1
+                    built = 'exact pay-off'
         elif stratum in (4, 5):  # zero tail; in stratum 5 after earlier extras and split into several items
             before = random_extras(rng, n, max(cents // 50, 1), rng.randint(1, 3)) if stratum == 5 else []
             for m in rng.sample(range(1, n), min(n - 1, 40)):
@@ -364,19 +365,31 @@ def check_extra_sweep(loans=3200):
                 else:
                     parts = [extra]
                 extras = prior + [(m, a) for a in parts]
-                key = 'zero tail, several items' + (' after earlier extras' if prior else '') if len(parts) > 1 else 'zero tail, one item'
-                built[key] = built.get(key, 0) + 1
+                built = ('zero tail, several items' + (' after earlier extras' if prior else '')
+                         if len(parts) > 1 else 'zero tail, one item')
                 break
         elif stratum == 6:  # tiny balance: the next month owes less than half a cent above M
             for m in rng.sample(range(1, max(n - 1, 2)), min(max(n - 2, 1), 40)):
                 extra = tiny_balance_extra(P, rate, years, m)
                 if extra is not None:
                     extras = [(m, extra), (m + 1, F(rng.randint(1, 10**6), 100))]
-                    built['tiny balance'] = built.get('tiny balance', 0) + 1
+                    built = 'tiny balance'
                     break
         elif stratum == 7:  # pay-off month with several items: later ones are covered by earlier ones
             m = rng.randint(1, n)
             extras = [(m, F(cents * 2, 100)), (m, F(rng.randint(1, 10**6), 100))] + random_extras(rng, n, cents, 2)
+        yield i, stratum, P, rate, years, extras, built
+
+
+def check_extra_sweep(loans=3200):
+    """§3.5 properties over the seeded strata of extra_sweep_cases, so that every ending and status occurs."""
+    bad, built = [], {}
+    endings = {'schedule': 0, 'extra': 0, 'zero_tail': 0}
+    statuses = {s: 0 for s in STATUSES}
+    loans_with_extras = loans_without = 0
+    for i, stratum, P, rate, years, extras, kind in extra_sweep_cases(loans):
+        if kind:
+            built[kind] = built.get(kind, 0) + 1
         x = calc_extra(P, rate, years, extras)
         b = calc(P, rate, years)
         if not extras:

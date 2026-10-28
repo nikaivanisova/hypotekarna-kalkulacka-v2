@@ -100,3 +100,68 @@ test('test_e2e_web_maxlength_stops_at_100_characters', async ({ page }) => {
   await field(page, 'Loan amount (EUR)').fill('1'.repeat(150));
   await expect(field(page, 'Loan amount (EUR)')).toHaveValue('1'.repeat(100));
 });
+
+// --- Phase 7: extra payments (docs/v2/04-extra-payments.md §6) --------------------------------
+
+async function addExtra(page, month, amount) {
+  await page.getByRole('button', { name: 'Add extra payment' }).click();
+  const row = page.getByTestId('extra-row').last();
+  await row.getByLabel('Month').fill(month);
+  await row.getByLabel('Amount (EUR)').fill(amount);
+}
+
+const lines = (page) => page.getByTestId('result').locator('ul.lines li');
+
+test('test_e2e_web_extra_payment_shortens_the_term (E1)', async ({ page }) => {
+  await field(page, 'Loan amount (EUR)').fill('100 000');
+  await field(page, 'Annual interest rate (%)').fill('3,5');
+  await field(page, 'Term (years)').fill('30');
+  await addExtra(page, '24', '5 000');
+  await page.getByRole('button', { name: 'Calculate' }).click();
+  await expect(lines(page)).toHaveText([
+    'Regular Monthly Payment: 449,04 €',
+    'Final Payment: 246,84 €',
+    'Total Paid: 153 879,08 €',
+    'Total Interest: 53 879,08 €',
+    'Loan paid off after: 27 years 8 months (332 payments)',
+    'Time saved: 2 years 4 months',
+    'Interest saved: 7 778,30 €',
+  ]);
+  await expect(page.getByTestId('extra-notes').locator('li')).toHaveCount(0);
+});
+
+test('test_e2e_web_pay_off_notes (E3)', async ({ page }) => {
+  await field(page, 'Loan amount (EUR)').fill('100 000');
+  await field(page, 'Annual interest rate (%)').fill('3,5');
+  await field(page, 'Term (years)').fill('30');
+  await addExtra(page, '60', '50 000');
+  await addExtra(page, '60', '50 000');
+  await addExtra(page, '120', '1 000');
+  await page.getByRole('button', { name: 'Calculate' }).click();
+  await expect(lines(page).nth(4)).toHaveText('Loan paid off after: 5 years (60 payments)');
+  await expect(lines(page).nth(5)).toHaveText('Time saved: 25 years');
+  await expect(page.getByTestId('extra-notes').locator('li')).toHaveText([
+    'Extra payment in month 60: only 39 697,38 € of 50 000,00 € was needed to pay off the loan.',
+    'Extra payment in month 120 (1 000,00 €) was not used: the loan was already paid off.',
+  ]);
+});
+
+test('test_e2e_web_item_error_lands_on_the_right_row_after_a_blank_row', async ({ page }) => {
+  await field(page, 'Loan amount (EUR)').fill('100 000');
+  await field(page, 'Annual interest rate (%)').fill('3,5');
+  await field(page, 'Term (years)').fill('10');
+  await addExtra(page, '', '');
+  await addExtra(page, '121', '1,234');
+  await page.getByRole('button', { name: 'Calculate' }).click();
+  const second = page.getByTestId('extra-row').nth(1);
+  await expect(second.locator('[data-error="month"]')).toHaveText('Extra payment 2: month must be between 1 and the last month of the loan term.');
+  await expect(second.locator('[data-error="amount"]')).toHaveText('Extra payment 2: amount can have at most 2 decimal places.');
+  await expect(page.getByTestId('extra-row').first().locator('[data-error="month"]')).toHaveText('');
+  await expect(page.getByTestId('result')).toBeHidden();
+});
+
+test('test_e2e_web_at_most_ten_extra_payments', async ({ page }) => {
+  for (let i = 0; i < 10; i++) await page.getByRole('button', { name: 'Add extra payment' }).click();
+  await expect(page.getByTestId('extra-row')).toHaveCount(10);
+  await expect(page.getByRole('button', { name: 'Add extra payment' })).toBeDisabled();
+});

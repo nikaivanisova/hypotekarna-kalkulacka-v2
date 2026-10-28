@@ -39,8 +39,13 @@ async function readJson(response) {
 export function createApiClient({ baseUrl = '', fetch = (...args) => globalThis.fetch(...args) } = {}) {
   return {
     async calculate(raw) {
-      // Only the contract's three properties, exactly as typed (extra properties would be a 400).
-      const body = JSON.stringify(Object.fromEntries(FIELDS.map((field) => [field, raw[field]])));
+      // Only the contract's properties, exactly as typed (anything else would be a 400). The extra
+      // payments are sent only when there are some (contract: the frontend omits an empty list).
+      const request = Object.fromEntries(FIELDS.map((field) => [field, raw[field]]));
+      if (Array.isArray(raw.extraPayments) && raw.extraPayments.length > 0) {
+        request.extraPayments = raw.extraPayments.map(({ month, amount }) => ({ month, amount }));
+      }
+      const body = JSON.stringify(request);
       let response;
       try {
         response = await fetch(`${baseUrl}/api/v1/calculations`, {

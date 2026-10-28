@@ -55,7 +55,74 @@ export const MESSAGES = {
   failure: 'The calculation could not be completed. Please try again later.',
   calculate: 'Calculate',
   resultHeading: 'Result',
+  // Phase 7: extra payments (docs/v2/04-extra-payments.md §4.2–4.3).
+  extra: {
+    legend: 'Extra payments (optional)',
+    help: 'If several extra payments are in the same month, the first one entered is used first.',
+    add: 'Add extra payment',
+    remove: 'Remove',
+    month: 'Month',
+    amount: 'Amount (EUR)',
+    paidOffAfter: 'Loan paid off after',
+    timeSaved: 'Time saved',
+    timeSavedNone: 'none',
+    interestSaved: 'Interest saved',
+  },
+  notes: {
+    partly_used: (e) => `Extra payment in month ${e.month}: only ${formatMoney(e.usedAmount)} of ${formatMoney(e.amount)} was needed to pay off the loan.`,
+    after_payoff: (e) => `Extra payment in month ${e.month} (${formatMoney(e.amount)}) was not used: the loan was already paid off.`,
+    loan_ends_this_month: (e) => `Extra payment in month ${e.month} (${formatMoney(e.amount)}) was not needed: the loan ends with this month's regular payment.`,
+    tiny_balance: (e) => `Extra payment in month ${e.month} (${formatMoney(e.amount)}) was not needed: less than half a cent was still owed after the regular payment.`,
+    covered_by_earlier: (e) => `Extra payment in month ${e.month} (${formatMoney(e.amount)}) was not needed: an earlier extra payment in the same month already paid off the loan.`,
+  },
+  unknownNote: (e) => `Extra payment in month ${e.month} (${formatMoney(e.amount)}): see the result above.`,
+  itemErrors: {
+    month: {
+      required: 'month is required.',
+      not_a_number: 'month must be a number.',
+      negative: 'month must not be negative.',
+      below_min: 'month must be between 1 and the last month of the loan term.',
+      above_max: 'month must be between 1 and the last month of the loan term.',
+      too_many_decimals: 'month must be a whole number.',
+      not_whole_number: 'month must be a whole number.',
+    },
+    amount: {
+      required: 'amount is required.',
+      not_a_number: 'amount must be a number.',
+      negative: 'amount must not be negative.',
+      below_min: 'amount must be between 0,01 € and 1 000 000,00 €.',
+      above_max: 'amount must be between 0,01 € and 1 000 000,00 €.',
+      too_many_decimals: 'amount can have at most 2 decimal places.',
+      not_whole_number: 'amount can have at most 2 decimal places.',
+    },
+  },
 };
+
+const ITEM_PROPERTIES = ['month', 'amount'];
+
+const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
+
+/**
+ * A whole number of months as years and months (04 §4.2): "1 year", "2 years 4 months", "11 months".
+ * Integer arithmetic on a count of months, never on money.
+ */
+export function formatDuration(months) {
+  const rest = months % 12;
+  const years = (months - rest) / 12;
+  const parts = [];
+  if (years > 0) parts.push(plural(years, 'year', 'years'));
+  if (rest > 0) parts.push(plural(rest, 'month', 'months'));
+  return parts.join(' ');
+}
+
+export function formatPayments(count) {
+  return `(${plural(count, 'payment', 'payments')})`;
+}
+
+function noteFor(item) {
+  // Object.hasOwn: a status such as "toString" must not reach Object.prototype.
+  return Object.hasOwn(MESSAGES.notes, item.status) ? MESSAGES.notes[item.status](item) : MESSAGES.unknownNote(item);
+}
 
 /**
  * True when |finalPayment − regularPayment| ≥ €0.01 (01 §2, Outputs). Both are canonical 2-dp
@@ -76,7 +143,16 @@ export function toResultView(result) {
     { label: labels.totalPaid, value: formatMoney(result.totalPaid) },
     { label: labels.totalInterest, value: formatMoney(result.totalInterest) },
   );
-  return { lines };
+  // Phase 7: extra lines and notes only when the result has extra payments (04 §4.2).
+  const extras = Array.isArray(result.extraPayments) ? result.extraPayments : [];
+  if (extras.length === 0) return { lines, notes: [] };
+  const extra = MESSAGES.extra;
+  lines.push(
+    { label: extra.paidOffAfter, value: `${formatDuration(result.numberOfPayments)} ${formatPayments(result.numberOfPayments)}` },
+    { label: extra.timeSaved, value: result.monthsSaved > 0 ? formatDuration(result.monthsSaved) : extra.timeSavedNone },
+    { label: extra.interestSaved, value: formatMoney(result.interestSaved) },
+  );
+  return { lines, notes: extras.filter((item) => item.status !== 'used').map(noteFor) };
 }
 
 function messageFor(field, code) {
@@ -85,14 +161,28 @@ function messageFor(field, code) {
 }
 
 /**
- * One message per known field (the first error given for it), in field order.
- * Errors for fields this page does not know (e.g. Phase 7 `extraPayments`) give the general message.
+ * One message per known field (the first error given for it), in field order, plus one message per
+ * extra-payment item error. `rowOf(index)` gives the form row (1-based) the sent item came from (04 §2).
+ * Errors the page cannot place (an unknown field, or an item error without a usable index or
+ * property) give the general message.
  */
-export function toErrorView(errors) {
+export function toErrorView(errors, rowOf = (index) => index + 1) {
   const fieldErrors = FIELDS.flatMap((field) => {
     const error = errors.find((e) => e.field === field);
     return error ? [{ field, label: FIELD_LABELS[field], message: messageFor(field, error.code) }] : [];
   });
-  const hasUnknownField = errors.some((e) => !FIELDS.includes(e.field));
-  return { errors: fieldErrors, general: hasUnknownField ? MESSAGES.invalidInput : null };
+  const itemErrors = [];
+  let unplaced = false;
+  for (const error of errors) {
+    if (FIELDS.includes(error.field)) continue;
+    const row = error.field === 'extraPayments' && Number.isInteger(error.index) ? rowOf(error.index) : undefined;
+    if (row === undefined || !ITEM_PROPERTIES.includes(error.property)) {
+      unplaced = true;
+      continue;
+    }
+    const texts = MESSAGES.itemErrors[error.property];
+    const text = Object.hasOwn(texts, error.code) ? texts[error.code] : `${error.property} is invalid.`;
+    itemErrors.push({ index: error.index, property: error.property, message: `Extra payment ${row}: ${text}` });
+  }
+  return { errors: fieldErrors, itemErrors, general: unplaced ? MESSAGES.invalidInput : null };
 }
