@@ -195,3 +195,26 @@ Prompts 21–26 (the V2 plan, the Python setup and decision D7) are logged in `d
 - Added `backend/.env.example`, `supabase/README.md`, and README, plan and handoff updates.
 - **Not done:** the live check. It needs the project's secret key, which only the author can copy from the dashboard: the Supabase MCP exposes publishable keys only, and secret values are not handled by the assistant.
 - Committed as "feat: save calculations in Supabase (Phase 6)".
+
+## Prompt 37 — Key added (live check)
+
+### Prompt
+
+> Key added
+
+### Output
+
+- `backend/.env` did not exist. Searched the project for the key without printing any value: no real `sb_secret_` key in any project file (so nothing was exposed or committed), no `.env` variants, and no `SUPABASE_SECRET_KEY` environment variable.
+- Created `backend/.env` from `.env.example` (URL filled in, key empty; ignored by git). Opening it in an editor failed (no supported editor installed), so the author got Notepad steps.
+- The live check did not run.
+
+## Prompt 38 — Pause and save
+
+### Prompt
+
+> pause and save my work
+
+### Output
+
+- All code was already committed (`5f9b3ac`, Phase 6). Recorded Prompts 37–38 and the paused state in `docs/handoff.md` (Next Steps 1: how to resume the live check).
+- Committed as "docs: record paused Phase 6 live check". `backend/.env` stays uncommitted (gitignored); `no-plan/` stays uncommitted as before.

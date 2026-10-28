@@ -207,8 +207,13 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
   - Added `backend/.env.example` (contains the URL; the key is empty), `supabase/README.md`, and the plan §4 note.
 
 ## Next Steps
-1. **The author adds the secret key:** copy `backend/.env.example` to `backend/.env` and paste `SUPABASE_SECRET_KEY` from Dashboard → Project Settings → API Keys.
-   - Then run `uv run --env-file .env python -m pytest -m live` in `backend/`, and save one calculation from the web page and check the row.
+1. **Paused here (Prompt 38). Resume with the live check:**
+   - `backend/.env` **exists** (created from `.env.example` in Prompt 37; ignored by git) with the URL filled in, but **`SUPABASE_SECRET_KEY=` is still empty**. The author pastes the key from Dashboard → project `hypotekarna-kalkulacka` → Project Settings → API Keys → Secret keys (`sb_secret_…`), with no quotes or spaces, and saves the file without a `.txt` extension.
+   - Before running anything, check the file without printing the key: present, starts with `sb_secret_`, no quotes or spaces.
+   - Then, in `backend/`: `uv run --env-file .env python -m pytest -m live` (saves one row, reads it back, deletes it).
+   - Then save one calculation from the web page and check the row with the Supabase MCP.
+   - The preview backend in `.claude/launch.json` starts without `--env-file`, so it does not save; restart it with the `.env` for that check.
+   - Checked in Prompt 37: no real key appears in any project file or environment variable, so nothing was exposed.
 2. Before Phase 8: decide the rate-limit policy (`429`). With FR-4 saving every valid request, it matters more now.
 3. Phase 7 (extra payments): first answer the FR-5 questions in `docs/v2/01-functional.md` §2.2.
 
