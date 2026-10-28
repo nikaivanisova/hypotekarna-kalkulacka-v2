@@ -105,7 +105,7 @@ alter table public.calculations enable row level security;
 - As applied in Phase 6 (`supabase/migrations/20261027221257_create_calculations.sql`), the table also has CHECK constraints that mirror the V1 rules, and all privileges are revoked from `anon` and `authenticated`.
 - Supabase keys live only in `backend/.env` (gitignored). The frontend never talks to Supabase directly in this plan (decision D4).
 - Migrations are files in `supabase/migrations/`, applied with the Supabase CLI; a local Supabase stack is used for development and tests.
-- Phase 7 adds `extra_payments (id, calculation_id → calculations.id, month, amount)`.
+- Phase 7 adds `extra_payments (id, calculation_id → calculations.id, month, amount)`. Superseded by `04-extra-payments.md` §5: the primary key is (calculation_id, position), plus `used_amount` and `status`; saving goes through a `save_calculation` function in one transaction.
 ## 5. Repository layout
 
 ```

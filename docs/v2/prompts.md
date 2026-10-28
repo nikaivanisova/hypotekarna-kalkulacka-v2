@@ -284,3 +284,64 @@ Prompts 21–26 (the V2 plan, the Python setup and decision D7) are logged in `d
   - The response id `d1b55276-…` exists in Supabase with the same values and `engine_version` `v2-calc-1`.
   - The row was left in place (1 row in the table).
 - **Phase 6 complete.** Updated `docs/handoff.md`. Committed as "chore: load backend/.env in the preview; record Phase 6 live check".
+
+## Prompt 45 — Plan extra payments (Phase 7, Layer 1)
+
+### Prompt
+
+> Plan extra payments
+
+### Interview
+
+Asked one question at a time, each with a recommended option:
+
+| # | Question | Answer |
+|---|---|---|
+| X1 | Kind of extra payment | One-time payments (recommended) |
+| X2 | How many per loan | Up to 10 (recommended) |
+| X3 | Fee | No fee (recommended) |
+| X4 | When does an extra in month k reduce the loan | With month k's regular payment, after that month's interest (recommended) |
+| X5 | Extra larger than what is owed | Pay off; use only what is owed; later ones listed as "not used" (recommended) |
+| X6 | Allowed amounts | 0,01 € – 1 000 000 € (recommended) |
+| X7 | Two extras in the same month | Allowed; they add up (recommended) |
+| X8 | Allowed months | 1 to term × 12 (recommended) |
+| X9 | Extra outputs (multi-select) | New loan length, Time saved, Interest saved. "Extra paid in total" was not chosen |
+
+### Output
+
+- Implemented the rules first as exact arithmetic: `tools/reference.py` `calc_extra`, with a self-checking sweep (`check_extra_sweep`, 3 000 loans) and 8 examples (`EXPECTED_EXTRA`).
+- The first version counted an extra in the last month as "0,06 € used" (example E4), only because V1's final payment is above the regular payment. The rule was corrected: in a month where the loan ends on its own schedule (month n, or V1's early termination), extras are "not used".
+- The zero-tail ending never occurred randomly, so `zero_tail_extra` now builds it on purpose. All three endings occur (schedule 409, extra 591, zero tail 1 000); 0 violations; without extras the results equal V1.
+- Wrote `docs/v2/04-extra-payments.md`: decisions X1–X9, inputs, domain rules, used amounts, totals, API, page, messages, storage, examples E1–E8, build plan, and questions R1–R5 for the reviewer.
+- Rechecked the spec's own numbers. The body-size estimate was wrong (2 400 → about 2 700 bytes in ASCII; non-ASCII can exceed 4 KiB → 413) and was corrected before the review.
+- Started an independent review (a separate agent) → `docs/v2/05-extra-payments-review.md`.
+
+## Prompt 46 — Is the review still running? (and decision X10)
+
+### Prompt
+
+> does it still run?
+
+### Output
+
+- Yes; the independent review was still running.
+- The review came back with "approve with changes": 6 Major, 7 Minor (→ `docs/v2/05-extra-payments-review.md`). Reproduced its counterexample first: 1 000,02 / 20 % / 30 y, extras 264: 783,50 and 265: 1 000 → K 265, the second item used 0,00, but it saves 1 month and 0,01 €.
+- **Asked the author** about review finding 4, a rule the drafting agent had changed without asking: an extra in a month where the loan ends anyway. **Answer: "Not needed", 0,00 used (recommended) → decision X10.**
+- Applied all 13 findings:
+  - `tools/reference.py`:
+    - 6 per-item statuses (`used`, `partly_used`, `after_payoff`, `loan_ends_this_month`, `tiny_balance`, `covered_by_earlier`);
+    - helpers that build edge cases on purpose;
+    - a stratified sweep with an independent paid-off check, greedy-split and status checks, and interest saved ≥ 0;
+    - examples E9–E12.
+    - Result: 0 violations; every ending and status reached.
+  - Mutation-tested the sweep itself: 10/10 mutations caught (one only through coverage, so noted).
+  - `04-extra-payments.md` rewritten:
+    - X10 and the statuses;
+    - the interest-saved proof;
+    - the request shape and the row map;
+    - notes and durations;
+    - an 8 KiB limit, from measured sizes;
+    - the RPC security;
+    - the list of contract changes.
+  - Plan §4 deviation logged.
+- Committed as "docs: extra-payment spec, review and exact reference (Phase 7 spec)". Waiting for the author's approval.

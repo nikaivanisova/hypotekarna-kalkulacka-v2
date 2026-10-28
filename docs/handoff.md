@@ -215,7 +215,16 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
 
 ## Next Steps
 1. Before Phase 8: decide the rate-limit policy (`429`). Every valid request now writes a row, so this matters more.
-2. **Phase 7 — extra payments (mimoriadna splátka):** first answer the FR-5 questions in `docs/v2/01-functional.md` §2.2 (one-time or recurring, fee, limits, outputs), then write the spec and have it reviewed before any code.
+2. **Phase 7 — extra payments: the spec is written and reviewed; waiting for the author's approval of `docs/v2/04-extra-payments.md`.**
+   - Decisions X1–X10 (Prompts 45–46): one-time, up to 10, no fee, paid with month k's payment, pay-off uses only what is owed, 0,01–1 000 000 €, the same month adds up, months 1–term × 12, outputs new loan length / time saved / interest saved; an extra in a month where the loan ends anyway is "not needed".
+   - `tools/reference.py` implements the rules exactly (`calc_extra`, with 6 per-item statuses). E1–E12 and a stratified sweep (3 200 loans; 0 violations; every ending and status reached) pass, and the sweep itself is mutation-tested (10/10 caught).
+   - Independent review `docs/v2/05-extra-payments-review.md`: 6 Major and 7 Minor findings, all resolved. Key points:
+     - the `tiny_balance` case;
+     - interest saved ≥ 0, proven;
+     - the row map for errors;
+     - `save_calculation` RPC security (invoker, `search_path`, revoke from public/anon/authenticated);
+     - an 8 KiB body limit.
+   - After approval: build plan §7 (schedule module → API and contract change → tests → migration → frontend).
 
 Open for Phase 7: the FR-5 extra-payment questions in `docs/v2/01-functional.md` §2.2.
 
