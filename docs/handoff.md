@@ -241,12 +241,14 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
     - The contract now states the policy.
   - **CI:** `.github/workflows/ci.yml` with four jobs: backend pytest; `tools/reference.py`; frontend Vitest + build; e2e (Playwright Chromium against the real backend).
     - `playwright.config.js` reads `PLAYWRIGHT_CHANNEL` and picks the `.venv/bin` or `.venv\Scripts` Python.
-    - **CI has not run yet: nothing is pushed.**
+  - **Pushed (Prompt 50)** after a secret scan of the 19 commits (only the fake test key; no `.env` tracked). The repository is **public**.
+    - `master` `f0466e5..42e6182` and tag `v1-final`.
+    - **First CI run green:** https://github.com/nikaivanisova/hypotekarna-kalkulacka-v2/actions/runs/40775599950 (about 1 min). Backend 460 passed; reference 0 violations; frontend 133 + build; e2e 13 passed in Chromium on Linux.
   - **Retrospective:** `docs/v2/06-retro.md`.
   - Tests: backend **460 passed** (+2 live); frontend **133** unit + **13** e2e (Edge).
 
 ## Next Steps
-1. **Push `master` and the tag `v1-final` to GitHub** (author's go-ahead), then check that the first CI run passes on Linux.
+1. Optional: make the CI checks required for `master` in the GitHub repository settings (branch protection).
 2. When V2 should be public: follow the deployment notes in `README.md` (one origin, secrets in the host, rate limit behind the proxy).
 3. V3: see `docs/v2/06-retro.md` §4 (measure time and tokens, re-review fixes as a whole, decide the V1 Minor findings).
 4. Decide whether to keep the `no-plan/` experiment from V1 (still uncommitted).

@@ -415,3 +415,22 @@ The contract-change review and the mutation runs reported back during Prompt 47;
 - Updated `CLAUDE.md` (V2 complete, `v1-final`, the Windows constraints), the root `README.md` (how to run, deployment notes), the plan status and D10, `backend/README.md` and `docs/handoff.md`.
 - Tests: backend 460 passed (+2 live); frontend 133 + 13 e2e.
 - Committed as "feat: remove V1 legacy CLI, add rate limiting and CI (Phase 8)" and "docs: V2 retrospective and Phase 8 docs".
+
+
+## Prompt 50 — Push and watch CI
+
+### Prompt
+
+> Push and watch CI
+
+### Output
+
+- The remote `master` was at `f0466e5`, so the push was a fast-forward of 19 commits. The repository is **public**.
+- Secret scan of the 19 commits before pushing: the only key-like string was the fake `sb_secret_TESTKEY…` in the unit tests, and no `.env` file is tracked.
+- Pushed `master` (`f0466e5..42e6182`) and the tag `v1-final`.
+- First CI run (https://github.com/nikaivanisova/hypotekarna-kalkulacka-v2/actions/runs/40775599950): **all 4 jobs green** in about 1 min.
+  - Backend: 460 passed, 2 skipped.
+  - Reference: V1 sweep 0 violations, E1–E12 ok, extra sweep 0 violations.
+  - Frontend: 133 passed; build ok.
+  - E2E: 13 passed in Chromium on Linux.
+- Recorded the run in `docs/handoff.md` and `docs/v2/06-retro.md`. This record was committed locally as "docs: record the first green CI run" and is not pushed yet.

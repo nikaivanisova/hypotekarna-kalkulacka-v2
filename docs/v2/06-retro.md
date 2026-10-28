@@ -13,7 +13,8 @@ Status: **Complete** (2026-10-28). It covers the V2 refactor from the plan (Prom
 | Tests | backend **460** (+2 live, skipped without a key); frontend **133** unit + **13** e2e; `tools/reference.py` (12 + 8 examples, 6 800 + 3 200 sweep loans) |
 | Independent reviews | 3: API contract (Phase 3), extra-payment spec (Phase 7), contract change (Phase 7). 0 Blockers, 11 Major, 19 Minor (5 + 8, 6 + 7, 0 + 4); all resolved |
 | Hand mutation checks | about 140 mutations over 9 runs (Phases 2, 4, 5, 6, the reference sweep, the Phase 7 backend, frontend and persistence, and the rate limit); every one caught by ≥ 2 tests, except 2 that were shown to be equivalent |
-| Not done | CI has never run (nothing pushed); no deployment (D10: local only); time and tokens per phase not measured |
+| CI | First run green after the push (Prompt 50): 4/4 jobs on Linux, the same counts as locally |
+| Not done | No deployment (D10: local only); time and tokens per phase not measured |
 
 ---
 
@@ -46,7 +47,7 @@ Status: **Complete** (2026-10-28). It covers the V2 refactor from the plan (Prom
 | 6 | **Windows Application Control** blocked `.venv\Scripts\pytest.exe` and schemathesis' `jsonschema_rs` DLL. | `python -m pytest` instead; a per-response contract check and a seeded fuzz test instead of schemathesis. | Check native tools early on a locked-down machine and write the workaround into CLAUDE.md. |
 | 7 | Shell quoting broke several inline scripts (heredocs with `'''`, `\n`, `\ud800`). | Retries; one edit was silently not applied and only caught by a check. | Write any non-trivial script to a file; verify every edit with a check, not with the absence of an error. |
 | 8 | Time and tokens per phase were **not measured**, although the V1 retrospective asked for it (§6.2). | The cost of the plan-first method can still not be stated. | Record wall-clock time and tokens per phase from the start of V3. |
-| 9 | CI exists but has **never run**. | Linux-only differences (paths, Chromium) are untested. | Push and watch the first run before calling CI done. |
+| 9 | CI was written before it could run (nothing was pushed until Prompt 50). | The first run was green on Linux, so the portable paths and Chromium worked first time; this was luck as much as design. | Push and watch the first run before calling CI done. |
 
 ## 3. V1 retrospective rules: were they followed?
 
@@ -61,7 +62,7 @@ Status: **Complete** (2026-10-28). It covers the V2 refactor from the plan (Prom
 
 ## 4. Recommendations for V3
 
-1. **Push, and make CI the gate.** Let the first GitHub Actions run pass, then require it on `master`.
+1. **Make CI the gate.** The first run passed (Prompt 50); require it on `master` (branch protection).
 2. **Measure** time and tokens per phase (V1 06 §6.2, still open).
 3. **Deployment**, when needed (D10):
    - Host the backend and frontend under one origin, or set the CORS allowlist to the frontend's URL.
