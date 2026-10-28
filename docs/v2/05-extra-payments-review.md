@@ -1,6 +1,6 @@
 # 05 — Extra Payments Spec Review (Phase 7)
 
-Status: **All findings resolved** (2026-10-28) in [`04-extra-payments.md`](04-extra-payments.md) and `tools/reference.py`. Waiting for the author's approval of 04.
+Status: **All findings resolved** (2026-10-28) in [`04-extra-payments.md`](04-extra-payments.md) and `tools/reference.py`. 04 approved by the author (Prompt 47).
 
 An independent reviewer reviewed the first draft of 04: a separate agent that had not written it, under the Layer 4 rules ("you did not write this", run things, do not estimate). The verdict was **approve with changes**: 6 Major, 7 Minor, no Blocker.
 

@@ -1,6 +1,6 @@
 # 04 — Extra Payments (FR-5, Phase 7)
 
-Status: **Reviewed; all findings applied** (2026-10-28). **Waiting for the author's approval.** The decisions in §1 are the author's (Prompts 45–46). Independent review: [`05-extra-payments-review.md`](05-extra-payments-review.md). No code is written before the author approves this document.
+Status: **Approved by the author** (Prompt 47, 2026-10-28). Reviewed; all findings applied. The decisions in §1 are the author's (Prompts 45–46). Independent review: [`05-extra-payments-review.md`](05-extra-payments-review.md). No code is written before the author approves this document.
 
 An extra payment (*mimoriadna splátka*) is a one-time payment on top of the regular monthly payment. It **shortens the term**, and the regular monthly payment does not change (D7). Without extra payments, every result is **exactly** the V1 result (V1 01 §4); this is tested.
 

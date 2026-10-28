@@ -1,10 +1,13 @@
 """M4 — Mortgage calculation (docs/v1/02-architecture.md §3, M4; 01-functional.md §4), ported from legacy/cli.
 
-Computes the payment figures of a fixed-rate annuity mortgage from a valid loan request.
-Pure: no I/O, no state, no clock. Depends only on domain.types and decimal.
+Computes the payment figures of a fixed-rate annuity mortgage from a valid loan request, including
+one-time extra payments (Phase 7; docs/v2/04-extra-payments.md). The month-by-month run lives in
+domain/schedule (ADR-9); without extra payments the results are exactly V1's.
+Pure: no I/O, no state, no clock. Depends only on domain/types, domain/schedule and decimal.
 """
 from decimal import ROUND_HALF_UP, Context, Decimal, localcontext
 
+from mortgage.domain.schedule import apply_extras, extras_by_month, run
 from mortgage.domain.types import LoanInput, MortgageResult
 
 # Private decimal context (ADR-3): 40 significant digits, round half up.
@@ -27,37 +30,28 @@ def calculate_mortgage(loan: LoanInput) -> MortgageResult:
         principal = loan.principal
         n = loan.term_years * MONTHS_PER_YEAR
         r = loan.annual_rate_percent / MONTHS_PER_YEAR / 100
-        growth = r + 1
 
-        # 01 §4.2: annuity payment, rounded to cents only once.
+        # 01 §4.2: annuity payment, rounded to cents only once. Extra payments never change it (D7).
         regular_payment = round_to_cents(annuity_payment(principal, r, n))
 
-        # 01 §4.4 step 2: month-by-month run with early termination, no intermediate rounding.
-        balance = principal
-        month = 1
-        amount_due = balance * growth
-        while month < n and amount_due > regular_payment:
-            balance = amount_due - regular_payment
-            month += 1
-            amount_due = balance * growth
+        # 01 §4.4 / 04 §3.2: month-by-month run, no intermediate rounding.
+        base = run(principal, r, n, regular_payment, {}, round_to_cents)
+        result = (run(principal, r, n, regular_payment, extras_by_month(loan.extra_payments), round_to_cents)
+                  if loan.extra_payments else base)
 
-        # 01 §4.4 step 3: a remainder that rounds to €0.00 makes the previous payment the final one.
-        number_of_payments = month
-        final_payment = round_to_cents(amount_due)
-        if final_payment.is_zero():
-            number_of_payments = month - 1
-            final_payment = regular_payment
-
-        # 01 §4.5: totals.
-        total_paid = regular_payment * (number_of_payments - 1) + final_payment
-        total_interest = total_paid - principal
+        # 01 §4.5 / 04 §3.4: totals and savings (sums of cent amounts; rounded only to fix the exponent).
+        total_interest = result.total_paid - principal
+        base_interest = base.total_paid - principal
 
         return MortgageResult(
-            number_of_payments=number_of_payments,
+            number_of_payments=result.number_of_payments,
             regular_payment=regular_payment,
-            final_payment=final_payment,
-            total_paid=round_to_cents(total_paid),
+            final_payment=result.final_payment,
+            total_paid=round_to_cents(result.total_paid),
             total_interest=round_to_cents(total_interest),
+            months_saved=base.number_of_payments - result.number_of_payments,
+            interest_saved=round_to_cents(base_interest - total_interest),
+            extra_payments=apply_extras(loan.extra_payments, result, regular_payment),
         )
 
 

@@ -21,6 +21,7 @@ LAYER_IMPORTS: dict[str, list[str]] = {
 # The only allowed imports inside one layer, besides domain.types.
 INTRA_LAYER_IMPORTS: dict[str, list[str]] = {
     'input.validation': ['input.parsing'],
+    'domain.calculation': ['domain.schedule'],  # Phase 7, ADR-9: M4 delegates the month-by-month run
     'api.app': ['api.body_limit', 'api.problems', 'api.request'],
     'api.body_limit': ['api.problems'],
 }
