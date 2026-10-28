@@ -36,12 +36,7 @@ V2 is the V1 calculator as a **web app**, with each successful calculation saved
 | FR-4 | Save calculation | Every successful calculation is saved in Supabase: the validated inputs, the results, and the time. Calculations are anonymous (D9). If saving fails, the result is still shown (D5). The user cannot list, reload or delete saved calculations in V2. |
 | FR-5 | Extra payment (*mimoriadna splátka*) | The user can add an extra payment to the loan. **It shortens the term; the regular monthly payment does not change** (D7). Without extra payments, every result is exactly the V1 result. The detailed rules are written and reviewed in Phase 7, before any code. |
 
-**FR-5 questions for the Phase 7 spec** (decided before Phase 7 code starts):
-
-- One-time payments at a chosen month, or also recurring ones? (Suggested first cut: one-time, any number of them.)
-- Fee for paying early? (Suggested: none.)
-- Limits: minimum/maximum amount, which months are allowed, what happens if the extra payment is larger than the remaining balance.
-- Outputs: which new results the page shows (e.g. new number of payments, months saved, interest saved).
+**FR-5 details:** decided by the author (X1–X10) and specified in [`04-extra-payments.md`](04-extra-payments.md), which supersedes the open questions that were listed here.
 
 ### 2.3 Out of scope for V2
 

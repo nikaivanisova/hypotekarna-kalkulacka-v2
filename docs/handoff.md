@@ -226,7 +226,6 @@ Items carried over to V2 are listed under "Open Questions" and "Next Steps" belo
      - an 8 KiB body limit.
    - After approval: build plan §7 (schedule module → API and contract change → tests → migration → frontend).
 
-Open for Phase 7: the FR-5 extra-payment questions in `docs/v2/01-functional.md` §2.2.
 
 V1 is complete. Before or at the start of V2:
 1. Confirm AC-3 by hand: run `npm start` (`npm.cmd start` in PowerShell), type `100 000`, `3,5` and `30`, then check the 4 result lines and exit code 0.
